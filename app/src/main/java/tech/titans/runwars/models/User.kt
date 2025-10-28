@@ -6,5 +6,6 @@ data class User(
     val lastName: String,
     val userName: String,
     val email: String,
-    val password: String
+    val password: String,
+    val territoryList: List<Territory>
 )
