@@ -29,6 +29,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import tech.titans.runwars.ui.theme.RunWarsTheme
 
 class MainActivity : ComponentActivity() {
@@ -70,10 +73,19 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             RunWarsTheme {
-                //LoginScreen()
-                RegisterScreen()
+                LoginRegister()
             }
         }
+    }
+}
+
+@Composable
+fun LoginRegister(){
+    val navController = rememberNavController()
+
+    NavHost(navController = navController, startDestination = "login"){
+        composable("login") { LoginScreen(navController) }
+        composable("register") { RegisterScreen(navController) }
     }
 }
 

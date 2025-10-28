@@ -14,7 +14,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 @Composable
-fun LoginScreen() {
+fun LoginScreen(navController: androidx.navigation.NavController) {
 
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -100,7 +100,7 @@ fun LoginScreen() {
 
             // Text de trecere la Register
             TextButton(
-                onClick = { /* TODO: navigare spre Register */ },
+                onClick = { navController.navigate("register") },
                 modifier = Modifier.padding(top = 16.dp)
             ) {
                 Text(

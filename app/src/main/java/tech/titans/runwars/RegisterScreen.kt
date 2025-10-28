@@ -15,7 +15,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 @Composable
-fun RegisterScreen() {
+fun RegisterScreen(navController: androidx.navigation.NavController) {
 
     var firstName by remember { mutableStateOf("") }
     var lastName by remember { mutableStateOf("") }
@@ -158,13 +158,14 @@ fun RegisterScreen() {
 
             // Text de revenire la Login
             TextButton(
-                onClick = { /* TODO: navigare spre Login */ },
+                onClick = { navController.popBackStack() },
                 modifier = Modifier.padding(top = 16.dp)
             ) {
                 Text(
                     text = "Already have an account? Login",
                     color = Color(0xFF8E5DFF),
-                    fontSize = 14.sp
+                    fontSize = 14.sp,
+                    softWrap = true
                 )
             }
         }
