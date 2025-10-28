@@ -32,7 +32,7 @@ import androidx.compose.ui.unit.dp
 import tech.titans.runwars.ui.theme.RunWarsTheme
 
 class MainActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
+  /*  override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
@@ -63,6 +63,15 @@ class MainActivity : ComponentActivity() {
                     PersonIcon()
                     MenuButton()
                 }
+            }
+        }
+    }*/
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent {
+            RunWarsTheme {
+                //LoginScreen()
+                RegisterScreen()
             }
         }
     }
