@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "1062942010643",
+    "firebase_url": "https://runwars-13db0-default-rtdb.europe-west1.firebasedatabase.app",
+    "project_id": "runwars-13db0",
+    "storage_bucket": "runwars-13db0.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1062942010643:android:abbbc8032eb731b3b4bee6",
+        "android_client_info": {
+          "package_name": "tech.titans.runwars"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAZTMCKf4NBJzVXouevrVOlJZ549Fbohg0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
