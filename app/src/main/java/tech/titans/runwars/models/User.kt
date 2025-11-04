@@ -7,6 +7,6 @@ data class User(
     val userName: String,
     val email: String,
     val password: String,
-    val territoryList: List<Territory>,
-    val runSessionList: List<RunSession>
+    val territoryList: List<Territory>?=null,
+    val runSessionList: List<RunSession>?=null
 )
