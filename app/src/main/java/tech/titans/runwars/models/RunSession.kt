@@ -3,7 +3,7 @@ package tech.titans.runwars.models
 import java.sql.Time
 
 data class RunSession(
-    val runId: Int,
+    val runId: String,
     val startLocation: Time,
     val stopLocation: Time,
     val distance: Int,

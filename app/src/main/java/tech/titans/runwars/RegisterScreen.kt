@@ -13,9 +13,12 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import tech.titans.runwars.views.SignUpViewModel
 
 @Composable
-fun RegisterScreen(navController: androidx.navigation.NavController) {
+fun RegisterScreen(navController: androidx.navigation.NavController,
+                   viewModel: SignUpViewModel = viewModel()) {
 
     var firstName by remember { mutableStateOf("") }
     var lastName by remember { mutableStateOf("") }
@@ -139,7 +142,7 @@ fun RegisterScreen(navController: androidx.navigation.NavController) {
 
             // Buton Register
             Button(
-                onClick = { /* TODO: creare cont */ },
+                onClick = { viewModel.signUp(firstName, lastName, userName, email, password) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(55.dp),
