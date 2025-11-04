@@ -1,25 +1,14 @@
 package tech.titans.runwars
 
 import android.os.Bundle
-import android.util.Log
-import android.widget.Button
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Button
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -33,9 +22,6 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.google.firebase.Firebase
-import com.google.firebase.FirebaseApp
-import com.google.firebase.database.database
 import tech.titans.runwars.ui.theme.RunWarsTheme
 
 class MainActivity : ComponentActivity() {
@@ -75,22 +61,6 @@ class MainActivity : ComponentActivity() {
     }*/
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-          val database = Firebase.database("https://runwars-13db0-default-rtdb.europe-west1.firebasedatabase.app/")
-          val myRef = database.getReference("message")
-      Log.d("FirebaseCheck", "Apps: ${FirebaseApp.getApps(this)}")
-          // Write data
-          myRef.setValue("Hello, Raul!")
-              .addOnSuccessListener {
-                  Log.d("Firebase", "Data written successfully!")
-              }
-              .addOnFailureListener { e ->
-                  Log.e("Firebase", "Failed to write data", e)
-              }
-      Log.d("Firebase", "Writing to: ${database.reference.root}")
-      myRef.get().addOnSuccessListener {
-          val value = it.value
-          Log.d("Firebase", "Value is: $value")
-      }
         setContent {
             RunWarsTheme {
                 LoginRegisterNavigation()
