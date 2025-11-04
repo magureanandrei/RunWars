@@ -11,9 +11,8 @@ object UserRepo {
             "firstName" to user.firstName,
             "lastName" to user.lastName,
             "userName" to user.userName,
-            "email" to user.email,
-            "password" to user.password
+            "email" to user.email
         )
-        users.child("${user.userId}").setValue(userMap)
+        users.child(user.userId).setValue(userMap)
     }
 }
