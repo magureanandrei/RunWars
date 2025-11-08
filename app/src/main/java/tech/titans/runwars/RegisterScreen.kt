@@ -61,7 +61,9 @@ fun RegisterScreen(navController: androidx.navigation.NavController,
                     unfocusedBorderColor = Color(0xFF8E5DFF),
                     cursorColor = Color.White,
                     focusedLabelColor = Color(0xFF8E5DFF),
-                    unfocusedLabelColor = Color(0xFFAAAAAA)
+                    unfocusedLabelColor = Color(0xFFAAAAAA),
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White
                 )
             )
 
@@ -79,7 +81,9 @@ fun RegisterScreen(navController: androidx.navigation.NavController,
                     unfocusedBorderColor = Color(0xFF8E5DFF),
                     cursorColor = Color.White,
                     focusedLabelColor = Color(0xFF8E5DFF),
-                    unfocusedLabelColor = Color(0xFFAAAAAA)
+                    unfocusedLabelColor = Color(0xFFAAAAAA),
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White
                 )
             )
 
@@ -97,7 +101,9 @@ fun RegisterScreen(navController: androidx.navigation.NavController,
                     unfocusedBorderColor = Color(0xFF8E5DFF),
                     cursorColor = Color.White,
                     focusedLabelColor = Color(0xFF8E5DFF),
-                    unfocusedLabelColor = Color(0xFFAAAAAA)
+                    unfocusedLabelColor = Color(0xFFAAAAAA),
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White
                 )
             )
 
@@ -116,7 +122,9 @@ fun RegisterScreen(navController: androidx.navigation.NavController,
                     unfocusedBorderColor = Color(0xFF8E5DFF),
                     cursorColor = Color.White,
                     focusedLabelColor = Color(0xFF8E5DFF),
-                    unfocusedLabelColor = Color(0xFFAAAAAA)
+                    unfocusedLabelColor = Color(0xFFAAAAAA),
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White
                 )
             )
 
@@ -136,7 +144,9 @@ fun RegisterScreen(navController: androidx.navigation.NavController,
                     unfocusedBorderColor = Color(0xFF8E5DFF),
                     cursorColor = Color.White,
                     focusedLabelColor = Color(0xFF8E5DFF),
-                    unfocusedLabelColor = Color(0xFFAAAAAA)
+                    unfocusedLabelColor = Color(0xFFAAAAAA),
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White
                 )
             )
 

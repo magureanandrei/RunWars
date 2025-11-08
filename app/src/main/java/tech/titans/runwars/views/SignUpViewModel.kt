@@ -6,6 +6,6 @@ import tech.titans.runwars.services.UserService
 
 class SignUpViewModel: ViewModel() {
     fun signUp(firstName: String, lastName: String, userName: String, email: String, password: String) {
-        UserService.addUser(firstName, lastName, userName, email, password)
+        UserService.signUpUser(firstName, lastName, userName, email, password)
     }
 }
