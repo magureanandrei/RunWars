@@ -89,10 +89,14 @@ fun LoginScreen(navController: androidx.navigation.NavController, viewModel: Log
             // Buton Login
             Button(
                 onClick = {
+                    if(email.isEmpty() || password.isEmpty()){
+                        errorMessage = "All fields are required"
+                        return@Button
+                    }
                     errorMessage = null
                     viewModel.login(email, password, { success, error ->
                         if(success){
-//                           TODO navigate to homescreen
+                           navController.navigate("home")
                         }
                         else{
                             errorMessage = error ?: "Login failed"
@@ -113,10 +117,10 @@ fun LoginScreen(navController: androidx.navigation.NavController, viewModel: Log
                     fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold
                 )
-                if(!errorMessage.isNullOrEmpty()){
-                    Spacer(Modifier.height(8.dp))
-                    Text(text = errorMessage ?: "", color = Color.Red)
-                }
+            }
+            if(!errorMessage.isNullOrEmpty()){
+                Spacer(Modifier.height(8.dp))
+                Text(text = errorMessage ?: "", color = Color.Red)
             }
 
             // Text de trecere la Register

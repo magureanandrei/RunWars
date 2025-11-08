@@ -8,7 +8,7 @@ import tech.titans.runwars.repo.UserRepo
 
 object UserService {
 
-    fun signUpUser(firstName: String, lastName: String, userName: String, email: String, password: String){
+    fun signUpUser(firstName: String, lastName: String, userName: String, email: String, password: String, onResult: (Boolean, String?) -> Unit){
         val auth = FirebaseAuth.getInstance()
         auth.createUserWithEmailAndPassword(email,password)
             .addOnCompleteListener{ task ->
@@ -26,13 +26,16 @@ object UserService {
                     )
 
                     UserRepo.addUser(user)
+                    onResult(true, null)
                 }
                 else{
+                    onResult(false, "User ID is null")
                     Log.e("UserService: signUpUser: ", "Uid is null")
                     throw NullPointerException("Uid is null")
                 }
             }
             else{
+                onResult(false, task.exception?.message)
                 Log.e("UserService: signUpUser: ", "Task was not successful")
             }
         }

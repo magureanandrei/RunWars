@@ -63,19 +63,20 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             RunWarsTheme {
-                LoginRegisterNavigation()
+                Navigation()
             }
         }
     }
 }
 
 @Composable
-fun LoginRegisterNavigation(){
+fun Navigation(){
     val navController = rememberNavController()
 
     NavHost(navController = navController, startDestination = "login"){
         composable("login") { LoginScreen(navController) }
         composable("register") { RegisterScreen(navController) }
+        composable("home") { HomeScreen(navController) }
     }
 }
 

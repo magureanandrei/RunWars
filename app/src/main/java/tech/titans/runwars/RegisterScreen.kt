@@ -25,6 +25,7 @@ fun RegisterScreen(navController: androidx.navigation.NavController,
     var userName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
     Box(
         modifier = Modifier
@@ -152,7 +153,20 @@ fun RegisterScreen(navController: androidx.navigation.NavController,
 
             // Buton Register
             Button(
-                onClick = { viewModel.signUp(firstName, lastName, userName, email, password) },
+                onClick = {
+                    if(firstName.isEmpty() || lastName.isEmpty() || userName.isEmpty() || email.isEmpty() || password.isEmpty()){
+                        errorMessage = "All fields are required"
+                        return@Button
+                    }
+                    errorMessage = null
+                    viewModel.signUp(firstName, lastName, userName, email, password, { success, error ->
+                        if(success){
+                            navController.navigate("home")
+                        }
+                        else{
+                            errorMessage = error ?: "Sign Up failed"
+                        }
+                    }) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(55.dp),
@@ -167,6 +181,10 @@ fun RegisterScreen(navController: androidx.navigation.NavController,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold
                 )
+            }
+            if(!errorMessage.isNullOrEmpty()){
+                Spacer(Modifier.height(8.dp))
+                Text(text = errorMessage ?: "", color = Color.Red)
             }
 
             // Text de revenire la Login
