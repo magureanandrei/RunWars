@@ -18,7 +18,7 @@
         android:theme="@style/Theme.RunWars">
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyAz_JbGgA2F0BuJ8p_ELdQJ5Na54hOtFnc"/>
+            android:value="${MAPS_API_KEY}"/>
         <activity
             android:name=".MainActivity"
             android:exported="true"

@@ -1,8 +1,30 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="AgentMigrationStateService">
+    <option name="migrationStatus" value="IN_PROGRESS" />
     <option name="pendingSessionIds">
       <option value="259967da-7c24-4ebd-b25e-d68c670cb92a" />
     </option>
+    <option name="pendingTurns">
+      <map>
+        <entry key="259967da-7c24-4ebd-b25e-d68c670cb92a">
+          <value>
+            <set>
+              <option value="ba467791-4b2b-4bb2-bbc7-d841d69a687a" />
+              <option value="d9a76862-6a7b-4ed0-b7d7-96a0a383f7dd" />
+            </set>
+          </value>
+        </entry>
+      </map>
+    </option>
+    <pendingWorkingSetItems>
+      <entry key="259967da-7c24-4ebd-b25e-d68c670cb92a">
+        <set>
+          <option value="file://$PROJECT_DIR$/local.properties" />
+          <option value="file://$PROJECT_DIR$/app/build.gradle.kts" />
+          <option value="file://$PROJECT_DIR$/app/src/main/AndroidManifest.xml" />
+        </set>
+      </entry>
+    </pendingWorkingSetItems>
   </component>
 </project>
