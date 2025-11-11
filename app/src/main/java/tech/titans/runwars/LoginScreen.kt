@@ -12,12 +12,15 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import tech.titans.runwars.views.LoginViewModel
 
 @Composable
-fun LoginScreen(navController: androidx.navigation.NavController) {
+fun LoginScreen(navController: androidx.navigation.NavController, viewModel: LoginViewModel = viewModel()) {
 
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
     Box(
         modifier = Modifier
@@ -55,7 +58,9 @@ fun LoginScreen(navController: androidx.navigation.NavController) {
                     unfocusedBorderColor = Color(0xFF8E5DFF),
                     cursorColor = Color.White,
                     focusedLabelColor = Color(0xFF8E5DFF),
-                    unfocusedLabelColor = Color(0xFFAAAAAA)
+                    unfocusedLabelColor = Color(0xFFAAAAAA),
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White
                 )
             )
 
@@ -75,13 +80,28 @@ fun LoginScreen(navController: androidx.navigation.NavController) {
                     unfocusedBorderColor = Color(0xFF8E5DFF),
                     cursorColor = Color.White,
                     focusedLabelColor = Color(0xFF8E5DFF),
-                    unfocusedLabelColor = Color(0xFFAAAAAA)
+                    unfocusedLabelColor = Color(0xFFAAAAAA),
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White
                 )
             )
 
             // Buton Login
             Button(
-                onClick = { /* deocamdată nu face nimic */ },
+                onClick = {
+                    if(email.isEmpty() || password.isEmpty()){
+                        errorMessage = "All fields are required"
+                        return@Button
+                    }
+                    errorMessage = null
+                    viewModel.login(email, password, { success, error ->
+                        if(success){
+                           navController.navigate("home")
+                        }
+                        else{
+                            errorMessage = error ?: "Login failed"
+                        }
+                    }) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(55.dp),
@@ -90,12 +110,17 @@ fun LoginScreen(navController: androidx.navigation.NavController) {
                     contentColor = Color.White
                 ),
                 shape = MaterialTheme.shapes.medium
+
             ) {
                 Text(
                     text = "Login",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold
                 )
+            }
+            if(!errorMessage.isNullOrEmpty()){
+                Spacer(Modifier.height(8.dp))
+                Text(text = errorMessage ?: "", color = Color.Red)
             }
 
             // Text de trecere la Register

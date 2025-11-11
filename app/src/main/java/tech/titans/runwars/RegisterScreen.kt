@@ -13,15 +13,19 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import tech.titans.runwars.views.SignUpViewModel
 
 @Composable
-fun RegisterScreen(navController: androidx.navigation.NavController) {
+fun RegisterScreen(navController: androidx.navigation.NavController,
+                   viewModel: SignUpViewModel = viewModel()) {
 
     var firstName by remember { mutableStateOf("") }
     var lastName by remember { mutableStateOf("") }
     var userName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
     Box(
         modifier = Modifier
@@ -58,7 +62,9 @@ fun RegisterScreen(navController: androidx.navigation.NavController) {
                     unfocusedBorderColor = Color(0xFF8E5DFF),
                     cursorColor = Color.White,
                     focusedLabelColor = Color(0xFF8E5DFF),
-                    unfocusedLabelColor = Color(0xFFAAAAAA)
+                    unfocusedLabelColor = Color(0xFFAAAAAA),
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White
                 )
             )
 
@@ -76,7 +82,9 @@ fun RegisterScreen(navController: androidx.navigation.NavController) {
                     unfocusedBorderColor = Color(0xFF8E5DFF),
                     cursorColor = Color.White,
                     focusedLabelColor = Color(0xFF8E5DFF),
-                    unfocusedLabelColor = Color(0xFFAAAAAA)
+                    unfocusedLabelColor = Color(0xFFAAAAAA),
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White
                 )
             )
 
@@ -94,7 +102,9 @@ fun RegisterScreen(navController: androidx.navigation.NavController) {
                     unfocusedBorderColor = Color(0xFF8E5DFF),
                     cursorColor = Color.White,
                     focusedLabelColor = Color(0xFF8E5DFF),
-                    unfocusedLabelColor = Color(0xFFAAAAAA)
+                    unfocusedLabelColor = Color(0xFFAAAAAA),
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White
                 )
             )
 
@@ -113,7 +123,9 @@ fun RegisterScreen(navController: androidx.navigation.NavController) {
                     unfocusedBorderColor = Color(0xFF8E5DFF),
                     cursorColor = Color.White,
                     focusedLabelColor = Color(0xFF8E5DFF),
-                    unfocusedLabelColor = Color(0xFFAAAAAA)
+                    unfocusedLabelColor = Color(0xFFAAAAAA),
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White
                 )
             )
 
@@ -133,13 +145,28 @@ fun RegisterScreen(navController: androidx.navigation.NavController) {
                     unfocusedBorderColor = Color(0xFF8E5DFF),
                     cursorColor = Color.White,
                     focusedLabelColor = Color(0xFF8E5DFF),
-                    unfocusedLabelColor = Color(0xFFAAAAAA)
+                    unfocusedLabelColor = Color(0xFFAAAAAA),
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White
                 )
             )
 
             // Buton Register
             Button(
-                onClick = { /* TODO: creare cont */ },
+                onClick = {
+                    if(firstName.isEmpty() || lastName.isEmpty() || userName.isEmpty() || email.isEmpty() || password.isEmpty()){
+                        errorMessage = "All fields are required"
+                        return@Button
+                    }
+                    errorMessage = null
+                    viewModel.signUp(firstName, lastName, userName, email, password, { success, error ->
+                        if(success){
+                            navController.navigate("home")
+                        }
+                        else{
+                            errorMessage = error ?: "Sign Up failed"
+                        }
+                    }) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(55.dp),
@@ -154,6 +181,10 @@ fun RegisterScreen(navController: androidx.navigation.NavController) {
                     fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold
                 )
+            }
+            if(!errorMessage.isNullOrEmpty()){
+                Spacer(Modifier.height(8.dp))
+                Text(text = errorMessage ?: "", color = Color.Red)
             }
 
             // Text de revenire la Login
