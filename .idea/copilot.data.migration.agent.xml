@@ -10,8 +10,15 @@
         <entry key="259967da-7c24-4ebd-b25e-d68c670cb92a">
           <value>
             <set>
+              <option value="2389b766-dd41-4428-95d8-92d1f528419e" />
+              <option value="477b7218-5567-4259-9f9f-4eabe58c0793" />
+              <option value="61b43de4-b57f-4cdd-9b05-03fa4c04eceb" />
+              <option value="61bfaa0b-8e0c-4a4c-812b-aedaaca3adf2" />
+              <option value="a9950eb8-f370-4507-9d39-520ade6f290d" />
               <option value="ba467791-4b2b-4bb2-bbc7-d841d69a687a" />
+              <option value="c52ed741-f5bd-4954-ad16-9b3e825f0eba" />
               <option value="d9a76862-6a7b-4ed0-b7d7-96a0a383f7dd" />
+              <option value="df93feb6-fb53-465f-9fdc-f0aa56e1836b" />
             </set>
           </value>
         </entry>
@@ -20,9 +27,7 @@
     <pendingWorkingSetItems>
       <entry key="259967da-7c24-4ebd-b25e-d68c670cb92a">
         <set>
-          <option value="file://$PROJECT_DIR$/local.properties" />
-          <option value="file://$PROJECT_DIR$/app/build.gradle.kts" />
-          <option value="file://$PROJECT_DIR$/app/src/main/AndroidManifest.xml" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/tech/titans/runwars/HomeScreen.kt" />
         </set>
       </entry>
     </pendingWorkingSetItems>
