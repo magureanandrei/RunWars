@@ -9,6 +9,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,22 +17,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.geometry.Offset
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import androidx.compose.foundation.border
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.graphics.nativeCanvas
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
 import com.google.android.gms.location.*
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.unit.sp
 import com.google.maps.android.SphericalUtil
 import com.google.maps.android.compose.*
 import kotlinx.coroutines.launch
@@ -57,91 +51,39 @@ fun HomeScreen(navController: NavController) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
-    // Location permission launcher
-    val locationPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-        onResult = { granted ->
-            if (granted) {
-                if (ContextCompat.checkSelfPermission(
-                        context,
-                        Manifest.permission.ACCESS_FINE_LOCATION
-                    ) == PackageManager.PERMISSION_GRANTED
-                ) {
-                    fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-                        location?.let {
-                            val newLocation = LatLng(it.latitude, it.longitude)
-                            currentLocation = newLocation
-                            cameraPositionState.position =
-                                com.google.android.gms.maps.model.CameraPosition.fromLatLngZoom(newLocation, 15f)
-                        }
-                    }
-                }
-            }
-        }
-    )
+    // Check if the run forms a closed loop
+    fun isClosedLoop(points: List<LatLng>): Boolean {
+        if (points.size < 3) return false
 
-    // Location request - update every 3 seconds for real-time tracking
-    val locationRequest = remember {
-        LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 3_000L)
-            .setMinUpdateIntervalMillis(2_000L)
-            .setMinUpdateDistanceMeters(5f) // Update every 5 meters
-            .build()
-    }
+        val startPoint = points.first()
+        val endPoint = points.last()
 
-    val locationCallback = remember {
-        object : LocationCallback() {
-            override fun onLocationResult(result: LocationResult) {
-                println("🔍 Location update received. isRunning=$isRunning, pathPoints size=${pathPoints.size}")
+        // Calculate distance between start and end (in meters)
+        val distance = SphericalUtil.computeDistanceBetween(startPoint, endPoint)
 
-                if (!isRunning) {
-                    println("❌ Not running, ignoring update")
-                    return
-                }
-
-                val loc = result.lastLocation
-                if (loc == null) {
-                    println("❌ Location is null")
-                    return
-                }
-
-                val newLocation = LatLng(loc.latitude, loc.longitude)
-                println("✅ New location: ${newLocation.latitude}, ${newLocation.longitude}")
-
-                // Add point to path
-                pathPoints = pathPoints + newLocation
-                println("📍 Path now has ${pathPoints.size} points")
-
-                // Calculate distance
-                if (pathPoints.size >= 2) {
-                    val oldDistance = distanceMeters
-                    distanceMeters = SphericalUtil.computeLength(pathPoints)
-                    println("📏 Distance updated: $oldDistance -> $distanceMeters meters")
-                }
-
-                // Update camera to follow user
-                currentLocation = newLocation
-                cameraPositionState.position =
-                    com.google.android.gms.maps.model.CameraPosition.fromLatLngZoom(newLocation, 16f)
-            }
-        }
+        // Consider it a loop if start and end are within 50 meters
+        println("🔄 Loop check: distance between start/end = $distance meters")
+        return distance <= 50.0
     }
 
     // Calculate territory area (closing the polygon)
-    fun calculateCapturedArea(): Double {
-        if (pathPoints.size < 3) return 0.0
+    fun calculateCapturedArea(points: List<LatLng>): Double {
+        if (points.size < 3) return 0.0
+
+        if (!isClosedLoop(points)) return 0.0
 
         // Close the polygon by adding first point at the end
-        val closedPath = if (pathPoints.first() != pathPoints.last()) {
-            pathPoints + pathPoints.first()
+        val closedPath = if (points.first() != points.last()) {
+            points + points.first()
         } else {
-            pathPoints
+            points
         }
 
         return abs(SphericalUtil.computeArea(closedPath))
     }
 
     // Create custom marker icon for user position - running figure
-    fun createUserMarkerBitmap(): Bitmap {
+    fun createUserMarkerBitmap(running: Boolean): Bitmap {
         val size = 140
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
@@ -212,7 +154,7 @@ fun HomeScreen(navController: NavController) {
         canvas.drawCircle(centerX + 30, centerY + 60, 8f, paint)
 
         // Running indicator (green pulse if running)
-        if (isRunning) {
+        if (running) {
             paint.color = android.graphics.Color.parseColor("#4CAF50")
             paint.alpha = 180
             canvas.drawCircle(centerX, centerY - 25, 25f, paint)
@@ -224,6 +166,97 @@ fun HomeScreen(navController: NavController) {
         return bitmap
     }
 
+    // Location permission launcher
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { granted ->
+            if (granted) {
+                if (ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.ACCESS_FINE_LOCATION
+                    ) == PackageManager.PERMISSION_GRANTED
+                ) {
+                    fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                        location?.let {
+                            val newLocation = LatLng(it.latitude, it.longitude)
+                            currentLocation = newLocation
+                            cameraPositionState.position =
+                                com.google.android.gms.maps.model.CameraPosition.fromLatLngZoom(newLocation, 15f)
+                        }
+                    }
+                }
+            }
+        }
+    )
+
+    // Location request - update every 3 seconds for real-time tracking during run
+    val locationRequest = remember {
+        LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 3_000L)
+            .setMinUpdateIntervalMillis(2_000L)
+            .setMinUpdateDistanceMeters(5f)
+            .build()
+    }
+
+    // Passive location request - for position updates when not running
+    val passiveLocationRequest = remember {
+        LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 10_000L)
+            .setMinUpdateIntervalMillis(5_000L)
+            .build()
+    }
+
+    // Location callback for tracking during run
+    val trackingLocationCallback = remember {
+        object : LocationCallback() {
+            override fun onLocationResult(result: LocationResult) {
+                println("🔍 Tracking update received. isRunning=$isRunning, pathPoints size=${pathPoints.size}")
+
+                if (!isRunning) {
+                    println("❌ Not running, ignoring tracking update")
+                    return
+                }
+
+                val loc = result.lastLocation
+                if (loc == null) {
+                    println("❌ Location is null")
+                    return
+                }
+
+                val newLocation = LatLng(loc.latitude, loc.longitude)
+                println("✅ New location: ${newLocation.latitude}, ${newLocation.longitude}")
+
+                // Add point to path
+                pathPoints = pathPoints + newLocation
+                println("📍 Path now has ${pathPoints.size} points")
+
+                // Calculate distance
+                if (pathPoints.size >= 2) {
+                    val oldDistance = distanceMeters
+                    distanceMeters = SphericalUtil.computeLength(pathPoints)
+                    println("📏 Distance updated: $oldDistance -> $distanceMeters meters")
+                }
+
+                // Update camera to follow user
+                currentLocation = newLocation
+                cameraPositionState.position =
+                    com.google.android.gms.maps.model.CameraPosition.fromLatLngZoom(newLocation, 16f)
+            }
+        }
+    }
+
+    // Location callback for passive position updates (when not running)
+    val passiveLocationCallback = remember {
+        object : LocationCallback() {
+            override fun onLocationResult(result: LocationResult) {
+                if (isRunning) return // Don't update if we're actively tracking
+
+                val loc = result.lastLocation ?: return
+                val newLocation = LatLng(loc.latitude, loc.longitude)
+                currentLocation = newLocation
+                println("📍 Passive position updated: ${newLocation.latitude}, ${newLocation.longitude}")
+            }
+        }
+    }
+
     val userMarkerState = rememberMarkerState(position = currentLocation)
 
     // Update marker position when current location changes
@@ -231,42 +264,98 @@ fun HomeScreen(navController: NavController) {
         userMarkerState.position = currentLocation
     }
 
+    // Initialize location services
     LaunchedEffect(Unit) {
         locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+
+        // Start passive location updates for when not running
+        try {
+            if (ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.ACCESS_FINE_LOCATION
+                ) == PackageManager.PERMISSION_GRANTED
+            ) {
+                fusedLocationClient.requestLocationUpdates(
+                    passiveLocationRequest,
+                    passiveLocationCallback,
+                    Looper.getMainLooper()
+                )
+                println("✅ Passive location updates started")
+            }
+        } catch (e: SecurityException) {
+            println("❌ Could not start passive location updates: ${e.message}")
+        }
+    }
+
+    // Cleanup location updates when leaving screen
+    DisposableEffect(Unit) {
+        onDispose {
+            fusedLocationClient.removeLocationUpdates(passiveLocationCallback)
+            fusedLocationClient.removeLocationUpdates(trackingLocationCallback)
+        }
     }
 
     // Result dialog after run
     if (showResultDialog && capturedAreaMeters2 != null) {
+        val isLoop = isClosedLoop(pathPoints)
+
         AlertDialog(
             onDismissRequest = { showResultDialog = false },
-            title = { Text("Territory Captured!", style = MaterialTheme.typography.headlineSmall) },
+            title = {
+                Text(
+                    if (isLoop) "Territory Captured!" else "Run Completed",
+                    style = MaterialTheme.typography.headlineSmall
+                )
+            },
             text = {
                 Column {
                     Text("Distance: %.2f km".format(distanceMeters / 1000))
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text("Territory: %.0f m² (%.2f hectares)".format(
-                        capturedAreaMeters2!!,
-                        capturedAreaMeters2!! / 10_000
-                    ))
-                    Spacer(modifier = Modifier.height(8.dp))
-                    if (pathPoints.size < 3) {
+
+                    if (isLoop && capturedAreaMeters2!! > 0) {
+                        Text("Territory: %.0f m² (%.2f hectares)".format(
+                            capturedAreaMeters2!!,
+                            capturedAreaMeters2!! / 10_000
+                        ))
+                    } else {
                         Text(
-                            "Run in a loop to capture territory!",
-                            color = Color.Red,
-                            fontSize = 14.sp
+                            "⚠️ You need to run in a loop to capture territory!",
+                            color = Color(0xFFFF9800),
+                            fontSize = 14.sp,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            "Tip: End your run close to where you started (within 50m)",
+                            color = Color.Gray,
+                            fontSize = 12.sp
                         )
                     }
                 }
             },
             confirmButton = {
-                Button(
-                    onClick = {
-                        showResultDialog = false
-                        // TODO: Save the run to database/backend
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2D3E6F))
-                ) {
-                    Text("Save Run")
+                if (isLoop && capturedAreaMeters2!! > 0) {
+                    Button(
+                        onClick = {
+                            showResultDialog = false
+                            // TODO: Save the run to database/backend
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2D3E6F))
+                    ) {
+                        Text("Save Territory")
+                    }
+                } else {
+                    Button(
+                        onClick = {
+                            showResultDialog = false
+                            pathPoints = emptyList()
+                            capturedAreaMeters2 = null
+                            distanceMeters = 0.0
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF757575))
+                    ) {
+                        Text("OK")
+                    }
                 }
             },
             dismissButton = {
@@ -274,6 +363,7 @@ fun HomeScreen(navController: NavController) {
                     showResultDialog = false
                     pathPoints = emptyList()
                     capturedAreaMeters2 = null
+                    distanceMeters = 0.0
                 }) {
                     Text("Discard")
                 }
@@ -324,9 +414,9 @@ fun HomeScreen(navController: NavController) {
                 Marker(
                     state = userMarkerState,
                     title = if (isRunning) "Running..." else "You",
-                    icon = BitmapDescriptorFactory.fromBitmap(createUserMarkerBitmap()),
-                    anchor = Offset(0.5f, 0.5f), // Center the marker
-                    flat = true // Makes it rotate with map
+                    icon = BitmapDescriptorFactory.fromBitmap(createUserMarkerBitmap(isRunning)),
+                    anchor = Offset(0.5f, 0.5f),
+                    flat = true
                 )
 
                 // Running path (cyan line)
@@ -338,9 +428,8 @@ fun HomeScreen(navController: NavController) {
                     )
                 }
 
-                // Show captured territory when run is finished
-                if (!isRunning && pathPoints.size >= 3) {
-                    // Closed polygon for visualization
+                // Show captured territory when run is finished AND it forms a loop
+                if (!isRunning && pathPoints.size >= 3 && isClosedLoop(pathPoints)) {
                     val closedPath = if (pathPoints.first() != pathPoints.last()) {
                         pathPoints + pathPoints.first()
                     } else {
@@ -413,7 +502,7 @@ fun HomeScreen(navController: NavController) {
                         fontSize = 28.sp,
                         fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
                     )
-                    if (!isRunning && capturedAreaMeters2 != null && capturedAreaMeters2!! > 0) {
+                    if (!isRunning && capturedAreaMeters2 != null && capturedAreaMeters2!! > 0 && isClosedLoop(pathPoints)) {
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = "Territory: %.0f m²".format(capturedAreaMeters2),
@@ -471,7 +560,7 @@ fun HomeScreen(navController: NavController) {
                             try {
                                 fusedLocationClient.requestLocationUpdates(
                                     locationRequest,
-                                    locationCallback,
+                                    trackingLocationCallback,
                                     Looper.getMainLooper()
                                 )
                                 println("✅ Location updates started")
@@ -481,11 +570,11 @@ fun HomeScreen(navController: NavController) {
                         } else {
                             // FINISH RUN
                             isRunning = false
-                            fusedLocationClient.removeLocationUpdates(locationCallback)
+                            fusedLocationClient.removeLocationUpdates(trackingLocationCallback)
 
-                            // Calculate captured territory
-                            capturedAreaMeters2 = if (pathPoints.size >= 3) {
-                                calculateCapturedArea()
+                            // Calculate captured territory only if it's a closed loop
+                            capturedAreaMeters2 = if (pathPoints.size >= 3 && isClosedLoop(pathPoints)) {
+                                calculateCapturedArea(pathPoints)
                             } else {
                                 0.0
                             }
