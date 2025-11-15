@@ -3,6 +3,7 @@ package tech.titans.runwars.services
 
 import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
+import tech.titans.runwars.models.RunSession
 import tech.titans.runwars.models.User
 import tech.titans.runwars.repo.UserRepo
 
@@ -49,6 +50,15 @@ object UserService {
             }
             else{
                 onResult(false, task.exception?.message)
+            }
+        }
+    }
+
+    fun addRunSessionToUser(runSession: RunSession, userId: String){
+        UserRepo.getUser(userId) { user, error ->
+            if(user != null){
+                user.runSessionList.add(runSession)
+                UserRepo.addUser(user)
             }
         }
     }

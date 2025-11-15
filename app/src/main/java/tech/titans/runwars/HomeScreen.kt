@@ -26,20 +26,26 @@ import androidx.navigation.NavController
 import com.google.android.gms.location.*
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
+import com.google.firebase.auth.FirebaseAuth
 import com.google.maps.android.SphericalUtil
 import com.google.maps.android.compose.*
 import kotlinx.coroutines.launch
+import tech.titans.runwars.models.Coordinates
+import tech.titans.runwars.models.RunSession
+import tech.titans.runwars.services.UserService
 import tech.titans.runwars.utils.LocationUtils.calculateCapturedArea
 import tech.titans.runwars.utils.LocationUtils.createUserMarkerBitmap
 import tech.titans.runwars.utils.LocationUtils.isClosedLoop
+import java.io.IOException
 import kotlin.math.abs
+import kotlin.time.Duration.Companion.minutes
 
 @Composable
 fun HomeScreen(navController: NavController) {
+    val userId = FirebaseAuth.getInstance().currentUser!!.uid
     val context = LocalContext.current
     val fusedLocationClient: FusedLocationProviderClient =
         LocationServices.getFusedLocationProviderClient(context)
-
     var currentLocation by remember { mutableStateOf(LatLng(46.7712, 23.6236)) }
     var isRunning by remember { mutableStateOf(false) }
     var pathPoints by remember { mutableStateOf(listOf<LatLng>()) }
