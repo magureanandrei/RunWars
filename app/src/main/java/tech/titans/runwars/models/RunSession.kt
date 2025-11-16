@@ -9,7 +9,7 @@ data class RunSession(
     val runId: String = "",
     val startTime: Long = 0L,
     val stopTime: Long = 0L,
-    val distance: Int = 0,
+    val distance: Double = 0.0,
     val duration: Long = 0L,
     val coordinatesList: MutableList<Coordinates> = mutableListOf()
 )

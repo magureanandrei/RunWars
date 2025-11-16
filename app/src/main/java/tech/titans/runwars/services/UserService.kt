@@ -2,9 +2,13 @@ package tech.titans.runwars.services
 
 
 import android.util.Log
+import com.google.android.gms.maps.model.LatLng
 import com.google.firebase.auth.FirebaseAuth
+import tech.titans.runwars.models.Coordinates
 import tech.titans.runwars.models.RunSession
 import tech.titans.runwars.models.User
+import tech.titans.runwars.repo.FirebaseProvider
+import tech.titans.runwars.repo.RunSessionRepo
 import tech.titans.runwars.repo.UserRepo
 
 object UserService {
@@ -54,7 +58,25 @@ object UserService {
         }
     }
 
-    fun addRunSessionToUser(runSession: RunSession, userId: String){
+    fun addRunSessionToUser(distance: Double, pathPoints: List<LatLng>, userId: String){
+        val runId = FirebaseProvider.database.getReference().push().key!!
+        val coordinatesList = mutableListOf<Coordinates>()
+        var index = 1
+
+        for(coord in pathPoints){
+            if(index == 1 || index%10 == 0){
+                coordinatesList.add(Coordinates(coord.latitude,coord.longitude))
+            }
+            index++
+        }
+
+        if(coordinatesList[coordinatesList.size -1] != Coordinates(pathPoints[index-1].latitude, pathPoints[index-1].longitude)){
+            coordinatesList.add(Coordinates(pathPoints[index-1].latitude, pathPoints[index-1].longitude))
+        }
+
+        val runSession = RunSession(runId = runId, distance = distance, coordinatesList = coordinatesList)
+        RunSessionRepo.addRunSession(runSession)
+
         UserRepo.getUser(userId) { user, error ->
             if(user != null){
                 user.runSessionList.add(runSession)

@@ -233,6 +233,7 @@ fun HomeScreen(navController: NavController) {
                         onClick = {
                             showResultDialog = false
                             // TODO: Save the run to database/backend
+                            UserService.addRunSessionToUser(distanceMeters,pathPoints, userId)
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2D3E6F))
                     ) {
