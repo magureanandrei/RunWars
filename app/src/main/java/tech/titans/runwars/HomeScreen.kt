@@ -228,40 +228,82 @@ fun HomeScreen(navController: NavController) {
                 }
             },
             confirmButton = {
-                if (isLoop && capturedAreaMeters2!! > 0) {
-                    Button(
-                        onClick = {
-                            showResultDialog = false
-                            // TODO: Save the run to database/backend
-                            UserService.addRunSessionToUser(distanceMeters,pathPoints, userId)
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2D3E6F))
-                    ) {
-                        Text("Save Territory")
-                    }
-                } else {
-                    Button(
-                        onClick = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ){
+                    if (isLoop && capturedAreaMeters2!! > 0) {
+                        Button(
+                            onClick = {
+                                showResultDialog = false
+                                UserService.addRunSessionToUser(distanceMeters,pathPoints, userId)
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2D3E6F))
+                        ) {
+                            Text("Save Territory")
+                        }
+                        TextButton(onClick = {
                             showResultDialog = false
                             pathPoints = emptyList()
                             capturedAreaMeters2 = null
                             distanceMeters = 0.0
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF757575))
-                    ) {
-                        Text("OK")
+                        }) {
+                            Text("Discard")
+                        }
+                    } else {
+                        if(pathPoints.size >= 3) {
+                            Button(
+                                onClick = {
+                                    showResultDialog = false
+                                    UserService.addRunSessionToUser(
+                                        distanceMeters,
+                                        pathPoints,
+                                        userId
+                                    )
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(
+                                        0xFF2D3E6F
+                                    )
+                                )
+                            ) {
+                                Text("Save the run anyway")
+                            }
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Button(
+                                onClick = {
+                                    showResultDialog = false
+                                    pathPoints = emptyList()
+                                    capturedAreaMeters2 = null
+                                    distanceMeters = 0.0
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(
+                                        0xFF757575
+                                    )
+                                )
+                            ) {
+                                Text("OK")
+                            }
+                            TextButton(onClick = {
+                                showResultDialog = false
+                                pathPoints = emptyList()
+                                capturedAreaMeters2 = null
+                                distanceMeters = 0.0
+                            }) {
+                                Text("Discard")
+                            }
+                        }
+
                     }
                 }
             },
             dismissButton = {
-                TextButton(onClick = {
-                    showResultDialog = false
-                    pathPoints = emptyList()
-                    capturedAreaMeters2 = null
-                    distanceMeters = 0.0
-                }) {
-                    Text("Discard")
-                }
+
             }
         )
     }
