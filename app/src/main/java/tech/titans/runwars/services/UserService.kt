@@ -69,9 +69,9 @@ object UserService {
             }
             index++
         }
-
-        if(coordinatesList[coordinatesList.size -1] != Coordinates(pathPoints[index-1].latitude, pathPoints[index-1].longitude)){
-            coordinatesList.add(Coordinates(pathPoints[index-1].latitude, pathPoints[index-1].longitude))
+        Log.i("AddRunSessionToUser", "Index: $index")
+        if(coordinatesList[coordinatesList.size -1] != Coordinates(pathPoints[index-2].latitude, pathPoints[index-2].longitude)){
+            coordinatesList.add(Coordinates(pathPoints[index-2].latitude, pathPoints[index-2].longitude))
         }
 
         val runSession = RunSession(runId = runId, distance = distance, coordinatesList = coordinatesList)
