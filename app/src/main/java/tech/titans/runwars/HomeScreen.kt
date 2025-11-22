@@ -52,6 +52,7 @@ fun HomeScreen(navController: NavController) {
     var distanceMeters by remember { mutableStateOf(0.0) }
     var capturedAreaMeters2 by remember { mutableStateOf<Double?>(null) }
     var showResultDialog by remember { mutableStateOf(false) }
+    var continueRun by remember { mutableStateOf(false) }
 
     val cameraPositionState = rememberCameraPositionState {
         position = com.google.android.gms.maps.model.CameraPosition.fromLatLngZoom(currentLocation, 14f)
@@ -194,7 +195,27 @@ fun HomeScreen(navController: NavController) {
         val isLoop = isClosedLoop(pathPoints)
 
         AlertDialog(
-            onDismissRequest = { showResultDialog = false },
+            onDismissRequest = {
+                showResultDialog = false
+                continueRun = true
+                isRunning = true
+                try {
+                    if (ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.ACCESS_FINE_LOCATION
+                        ) == PackageManager.PERMISSION_GRANTED
+                    ) {
+                        fusedLocationClient.requestLocationUpdates(
+                            locationRequest,
+                            trackingLocationCallback,
+                            Looper.getMainLooper()
+                        )
+                        println("▶️ Resumed location tracking with ${pathPoints.size} points")
+                    }
+                } catch (e: SecurityException) {
+                    println("❌ Could not resume tracking: ${e.message}")
+                }
+                               },
             title = {
                 Text(
                     if (isLoop) "Territory Captured!" else "Run Completed",
@@ -237,6 +258,7 @@ fun HomeScreen(navController: NavController) {
                             onClick = {
                                 showResultDialog = false
                                 UserService.addRunSessionToUser(distanceMeters,pathPoints, userId)
+                                pathPoints = emptyList()
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2D3E6F))
                         ) {
@@ -247,6 +269,7 @@ fun HomeScreen(navController: NavController) {
                             pathPoints = emptyList()
                             capturedAreaMeters2 = null
                             distanceMeters = 0.0
+                            continueRun = false
                         }) {
                             Text("Discard")
                         }
@@ -260,6 +283,8 @@ fun HomeScreen(navController: NavController) {
                                         pathPoints,
                                         userId
                                     )
+                                    pathPoints = emptyList()
+                                    continueRun = false
                                 },
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = Color(
@@ -277,9 +302,27 @@ fun HomeScreen(navController: NavController) {
                             Button(
                                 onClick = {
                                     showResultDialog = false
-                                    pathPoints = emptyList()
-                                    capturedAreaMeters2 = null
-                                    distanceMeters = 0.0
+//                                    pathPoints = emptyList()
+//                                    capturedAreaMeters2 = null
+//                                    distanceMeters = 0.0
+                                    continueRun = true
+                                    isRunning = true
+                                    try {
+                                        if (ContextCompat.checkSelfPermission(
+                                                context,
+                                                Manifest.permission.ACCESS_FINE_LOCATION
+                                            ) == PackageManager.PERMISSION_GRANTED
+                                        ) {
+                                            fusedLocationClient.requestLocationUpdates(
+                                                locationRequest,
+                                                trackingLocationCallback,
+                                                Looper.getMainLooper()
+                                            )
+                                            println("▶️ Resumed location tracking with ${pathPoints.size} points")
+                                        }
+                                    } catch (e: SecurityException) {
+                                        println("❌ Could not resume tracking: ${e.message}")
+                                    }
                                 },
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = Color(
@@ -294,6 +337,7 @@ fun HomeScreen(navController: NavController) {
                                 pathPoints = emptyList()
                                 capturedAreaMeters2 = null
                                 distanceMeters = 0.0
+                                continueRun = false
                             }) {
                                 Text("Discard")
                             }
@@ -301,9 +345,6 @@ fun HomeScreen(navController: NavController) {
 
                     }
                 }
-            },
-            dismissButton = {
-
             }
         )
     }
@@ -475,21 +516,26 @@ fun HomeScreen(navController: NavController) {
                             println("🏁 Starting run...")
 
                             // Reset state
-                            pathPoints = emptyList()
-                            distanceMeters = 0.0
-                            capturedAreaMeters2 = null
+                            if (!continueRun) {
+                                pathPoints = emptyList()
+                                distanceMeters = 0.0
+                                capturedAreaMeters2 = null
 
-                            // Get current location and add it as first point
-                            try {
-                                fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-                                    location?.let {
-                                        val startLocation = LatLng(it.latitude, it.longitude)
-                                        pathPoints = listOf(startLocation)
-                                        currentLocation = startLocation
-                                        println("📍 Starting location: ${startLocation.latitude}, ${startLocation.longitude}")
+                                // Get current location and add it as first point
+                                try {
+                                    fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                                        location?.let {
+                                            val startLocation = LatLng(it.latitude, it.longitude)
+                                            pathPoints = listOf(startLocation)
+                                            currentLocation = startLocation
+                                            println("📍 Starting location: ${startLocation.latitude}, ${startLocation.longitude}")
+                                        }
                                     }
-                                }
-                            } catch (_: SecurityException) { }
+                                } catch (_: SecurityException) { }
+                            } else {
+                                // Continuing run - just resume from current state
+                                println("▶️ Resuming run with ${pathPoints.size} existing points")
+                            }
 
                             // Start location updates
                             isRunning = true
@@ -506,19 +552,21 @@ fun HomeScreen(navController: NavController) {
                             }
                         } else {
                             // FINISH RUN
-                            isRunning = false
-                            fusedLocationClient.removeLocationUpdates(trackingLocationCallback)
+                                isRunning = false
+                                fusedLocationClient.removeLocationUpdates(trackingLocationCallback)
 
-                            // Calculate captured territory only if it's a closed loop
-                            capturedAreaMeters2 = if (pathPoints.size >= 3 && isClosedLoop(pathPoints)) {
-                                calculateCapturedArea(pathPoints)
-                            } else {
-                                0.0
+                                // Calculate captured territory only if it's a closed loop
+                                capturedAreaMeters2 =
+                                    if (pathPoints.size >= 3 && isClosedLoop(pathPoints)) {
+                                        calculateCapturedArea(pathPoints)
+                                    } else {
+                                        0.0
+                                    }
+
+                                // Show result dialog
+                                showResultDialog = true
                             }
 
-                            // Show result dialog
-                            showResultDialog = true
-                        }
                     },
                     modifier = Modifier
                         .align(Alignment.Center)
