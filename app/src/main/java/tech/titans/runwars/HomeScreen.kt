@@ -26,23 +26,33 @@ import androidx.navigation.NavController
 import com.google.android.gms.location.*
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
+import com.google.firebase.auth.FirebaseAuth
 import com.google.maps.android.SphericalUtil
 import com.google.maps.android.compose.*
 import kotlinx.coroutines.launch
+import tech.titans.runwars.models.Coordinates
+import tech.titans.runwars.models.RunSession
+import tech.titans.runwars.services.UserService
+import tech.titans.runwars.utils.LocationUtils.calculateCapturedArea
+import tech.titans.runwars.utils.LocationUtils.createUserMarkerBitmap
+import tech.titans.runwars.utils.LocationUtils.isClosedLoop
+import java.io.IOException
 import kotlin.math.abs
+import kotlin.time.Duration.Companion.minutes
 
 @Composable
 fun HomeScreen(navController: NavController) {
+    val userId = FirebaseAuth.getInstance().currentUser!!.uid
     val context = LocalContext.current
     val fusedLocationClient: FusedLocationProviderClient =
         LocationServices.getFusedLocationProviderClient(context)
-
     var currentLocation by remember { mutableStateOf(LatLng(46.7712, 23.6236)) }
     var isRunning by remember { mutableStateOf(false) }
     var pathPoints by remember { mutableStateOf(listOf<LatLng>()) }
     var distanceMeters by remember { mutableStateOf(0.0) }
     var capturedAreaMeters2 by remember { mutableStateOf<Double?>(null) }
     var showResultDialog by remember { mutableStateOf(false) }
+    var continueRun by remember { mutableStateOf(false) }
 
     val cameraPositionState = rememberCameraPositionState {
         position = com.google.android.gms.maps.model.CameraPosition.fromLatLngZoom(currentLocation, 14f)
@@ -50,121 +60,6 @@ fun HomeScreen(navController: NavController) {
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
-
-    // Check if the run forms a closed loop
-    fun isClosedLoop(points: List<LatLng>): Boolean {
-        if (points.size < 3) return false
-
-        val startPoint = points.first()
-        val endPoint = points.last()
-
-        // Calculate distance between start and end (in meters)
-        val distance = SphericalUtil.computeDistanceBetween(startPoint, endPoint)
-
-        // Consider it a loop if start and end are within 50 meters
-        println("🔄 Loop check: distance between start/end = $distance meters")
-        return distance <= 50.0
-    }
-
-    // Calculate territory area (closing the polygon)
-    fun calculateCapturedArea(points: List<LatLng>): Double {
-        if (points.size < 3) return 0.0
-
-        if (!isClosedLoop(points)) return 0.0
-
-        // Close the polygon by adding first point at the end
-        val closedPath = if (points.first() != points.last()) {
-            points + points.first()
-        } else {
-            points
-        }
-
-        return abs(SphericalUtil.computeArea(closedPath))
-    }
-
-    // Create custom marker icon for user position - running figure
-    fun createUserMarkerBitmap(running: Boolean): Bitmap {
-        val size = 140
-        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
-
-        val paint = android.graphics.Paint().apply {
-            isAntiAlias = true
-            style = android.graphics.Paint.Style.FILL
-        }
-
-        val centerX = size / 2f
-        val centerY = size / 2f
-
-        // Shadow
-        paint.color = android.graphics.Color.parseColor("#40000000")
-        canvas.drawCircle(centerX, size * 0.85f, 35f, paint)
-
-        // Body (main torso) - blue
-        paint.color = android.graphics.Color.parseColor("#1E88E5")
-        val bodyPath = android.graphics.Path().apply {
-            moveTo(centerX, centerY - 10)
-            lineTo(centerX + 20, centerY + 15)
-            lineTo(centerX + 15, centerY + 35)
-            lineTo(centerX - 15, centerY + 35)
-            lineTo(centerX - 20, centerY + 15)
-            close()
-        }
-        canvas.drawPath(bodyPath, paint)
-
-        // Head
-        paint.color = android.graphics.Color.parseColor("#FFD8B4")
-        canvas.drawCircle(centerX, centerY - 25, 18f, paint)
-
-        // Head outline
-        paint.style = android.graphics.Paint.Style.STROKE
-        paint.strokeWidth = 2f
-        paint.color = android.graphics.Color.parseColor("#D4A574")
-        canvas.drawCircle(centerX, centerY - 25, 18f, paint)
-        paint.style = android.graphics.Paint.Style.FILL
-
-        // Arms (running pose)
-        paint.color = android.graphics.Color.parseColor("#1565C0")
-        paint.strokeWidth = 10f
-        paint.strokeCap = android.graphics.Paint.Cap.ROUND
-        paint.style = android.graphics.Paint.Style.STROKE
-
-        // Left arm (back)
-        canvas.drawLine(centerX - 15, centerY, centerX - 35, centerY + 25, paint)
-
-        // Right arm (forward)
-        canvas.drawLine(centerX + 15, centerY, centerX + 30, centerY - 15, paint)
-
-        // Legs (running pose)
-        paint.color = android.graphics.Color.parseColor("#424242")
-        paint.strokeWidth = 12f
-
-        // Left leg (forward)
-        canvas.drawLine(centerX - 5, centerY + 35, centerX - 15, centerY + 60, paint)
-        canvas.drawLine(centerX - 15, centerY + 60, centerX - 10, centerY + 75, paint)
-
-        // Right leg (back)
-        canvas.drawLine(centerX + 5, centerY + 35, centerX + 20, centerY + 50, paint)
-        canvas.drawLine(centerX + 20, centerY + 50, centerX + 30, centerY + 60, paint)
-
-        // Shoes
-        paint.style = android.graphics.Paint.Style.FILL
-        paint.color = android.graphics.Color.parseColor("#E53935")
-        canvas.drawCircle(centerX - 10, centerY + 75, 8f, paint)
-        canvas.drawCircle(centerX + 30, centerY + 60, 8f, paint)
-
-        // Running indicator (green pulse if running)
-        if (running) {
-            paint.color = android.graphics.Color.parseColor("#4CAF50")
-            paint.alpha = 180
-            canvas.drawCircle(centerX, centerY - 25, 25f, paint)
-
-            paint.alpha = 255
-            canvas.drawCircle(centerX, centerY - 25, 20f, paint)
-        }
-
-        return bitmap
-    }
 
     // Location permission launcher
     val locationPermissionLauncher = rememberLauncherForActivityResult(
@@ -300,7 +195,27 @@ fun HomeScreen(navController: NavController) {
         val isLoop = isClosedLoop(pathPoints)
 
         AlertDialog(
-            onDismissRequest = { showResultDialog = false },
+            onDismissRequest = {
+                showResultDialog = false
+                continueRun = true
+                isRunning = true
+                try {
+                    if (ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.ACCESS_FINE_LOCATION
+                        ) == PackageManager.PERMISSION_GRANTED
+                    ) {
+                        fusedLocationClient.requestLocationUpdates(
+                            locationRequest,
+                            trackingLocationCallback,
+                            Looper.getMainLooper()
+                        )
+                        println("▶️ Resumed location tracking with ${pathPoints.size} points")
+                    }
+                } catch (e: SecurityException) {
+                    println("❌ Could not resume tracking: ${e.message}")
+                }
+                               },
             title = {
                 Text(
                     if (isLoop) "Territory Captured!" else "Run Completed",
@@ -334,38 +249,101 @@ fun HomeScreen(navController: NavController) {
                 }
             },
             confirmButton = {
-                if (isLoop && capturedAreaMeters2!! > 0) {
-                    Button(
-                        onClick = {
-                            showResultDialog = false
-                            // TODO: Save the run to database/backend
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2D3E6F))
-                    ) {
-                        Text("Save Territory")
-                    }
-                } else {
-                    Button(
-                        onClick = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ){
+                    if (isLoop && capturedAreaMeters2!! > 0) {
+                        Button(
+                            onClick = {
+                                showResultDialog = false
+                                UserService.addRunSessionToUser(distanceMeters,pathPoints, userId)
+                                pathPoints = emptyList()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2D3E6F))
+                        ) {
+                            Text("Save Territory")
+                        }
+                        TextButton(onClick = {
                             showResultDialog = false
                             pathPoints = emptyList()
                             capturedAreaMeters2 = null
                             distanceMeters = 0.0
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF757575))
-                    ) {
-                        Text("OK")
+                            continueRun = false
+                        }) {
+                            Text("Discard")
+                        }
+                    } else {
+                        if(pathPoints.size >= 3) {
+                            Button(
+                                onClick = {
+                                    showResultDialog = false
+                                    UserService.addRunSessionToUser(
+                                        distanceMeters,
+                                        pathPoints,
+                                        userId
+                                    )
+                                    pathPoints = emptyList()
+                                    continueRun = false
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(
+                                        0xFF2D3E6F
+                                    )
+                                )
+                            ) {
+                                Text("Save the run anyway")
+                            }
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Button(
+                                onClick = {
+                                    showResultDialog = false
+//                                    pathPoints = emptyList()
+//                                    capturedAreaMeters2 = null
+//                                    distanceMeters = 0.0
+                                    continueRun = true
+                                    isRunning = true
+                                    try {
+                                        if (ContextCompat.checkSelfPermission(
+                                                context,
+                                                Manifest.permission.ACCESS_FINE_LOCATION
+                                            ) == PackageManager.PERMISSION_GRANTED
+                                        ) {
+                                            fusedLocationClient.requestLocationUpdates(
+                                                locationRequest,
+                                                trackingLocationCallback,
+                                                Looper.getMainLooper()
+                                            )
+                                            println("▶️ Resumed location tracking with ${pathPoints.size} points")
+                                        }
+                                    } catch (e: SecurityException) {
+                                        println("❌ Could not resume tracking: ${e.message}")
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(
+                                        0xFF757575
+                                    )
+                                )
+                            ) {
+                                Text("OK")
+                            }
+                            TextButton(onClick = {
+                                showResultDialog = false
+                                pathPoints = emptyList()
+                                capturedAreaMeters2 = null
+                                distanceMeters = 0.0
+                                continueRun = false
+                            }) {
+                                Text("Discard")
+                            }
+                        }
+
                     }
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    showResultDialog = false
-                    pathPoints = emptyList()
-                    capturedAreaMeters2 = null
-                    distanceMeters = 0.0
-                }) {
-                    Text("Discard")
                 }
             }
         )
@@ -538,21 +516,26 @@ fun HomeScreen(navController: NavController) {
                             println("🏁 Starting run...")
 
                             // Reset state
-                            pathPoints = emptyList()
-                            distanceMeters = 0.0
-                            capturedAreaMeters2 = null
+                            if (!continueRun) {
+                                pathPoints = emptyList()
+                                distanceMeters = 0.0
+                                capturedAreaMeters2 = null
 
-                            // Get current location and add it as first point
-                            try {
-                                fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-                                    location?.let {
-                                        val startLocation = LatLng(it.latitude, it.longitude)
-                                        pathPoints = listOf(startLocation)
-                                        currentLocation = startLocation
-                                        println("📍 Starting location: ${startLocation.latitude}, ${startLocation.longitude}")
+                                // Get current location and add it as first point
+                                try {
+                                    fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                                        location?.let {
+                                            val startLocation = LatLng(it.latitude, it.longitude)
+                                            pathPoints = listOf(startLocation)
+                                            currentLocation = startLocation
+                                            println("📍 Starting location: ${startLocation.latitude}, ${startLocation.longitude}")
+                                        }
                                     }
-                                }
-                            } catch (_: SecurityException) { }
+                                } catch (_: SecurityException) { }
+                            } else {
+                                // Continuing run - just resume from current state
+                                println("▶️ Resuming run with ${pathPoints.size} existing points")
+                            }
 
                             // Start location updates
                             isRunning = true
@@ -569,19 +552,21 @@ fun HomeScreen(navController: NavController) {
                             }
                         } else {
                             // FINISH RUN
-                            isRunning = false
-                            fusedLocationClient.removeLocationUpdates(trackingLocationCallback)
+                                isRunning = false
+                                fusedLocationClient.removeLocationUpdates(trackingLocationCallback)
 
-                            // Calculate captured territory only if it's a closed loop
-                            capturedAreaMeters2 = if (pathPoints.size >= 3 && isClosedLoop(pathPoints)) {
-                                calculateCapturedArea(pathPoints)
-                            } else {
-                                0.0
+                                // Calculate captured territory only if it's a closed loop
+                                capturedAreaMeters2 =
+                                    if (pathPoints.size >= 3 && isClosedLoop(pathPoints)) {
+                                        calculateCapturedArea(pathPoints)
+                                    } else {
+                                        0.0
+                                    }
+
+                                // Show result dialog
+                                showResultDialog = true
                             }
 
-                            // Show result dialog
-                            showResultDialog = true
-                        }
                     },
                     modifier = Modifier
                         .align(Alignment.Center)

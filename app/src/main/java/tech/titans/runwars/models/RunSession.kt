@@ -1,12 +1,15 @@
 package tech.titans.runwars.models
 
+import androidx.compose.ui.graphics.Path
+import com.google.android.gms.maps.model.LatLng
 import java.sql.Time
+import kotlin.time.Duration
 
 data class RunSession(
-    val runId: String,
-    val startLocation: Time,
-    val stopLocation: Time,
-    val distance: Int,
-    val duration: Time,
-    val path: String
+    val runId: String = "",
+    val startTime: Long = 0L,
+    val stopTime: Long = 0L,
+    val distance: Double = 0.0,
+    val duration: Long = 0L,
+    val coordinatesList: MutableList<Coordinates> = mutableListOf()
 )
