@@ -8,6 +8,14 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 
 /**
+ * Result of location smoothing operation
+ */
+data class SmoothedLocationResult(
+    val location: Location,
+    val shouldAddToPath: Boolean // True if anchor was updated (moved > 10m)
+)
+
+/**
  * Production-ready GPS smoothing system using Kalman filtering.
  * Handles noise rejection, stationary detection, and confidence decay.
  */
@@ -22,6 +30,10 @@ class LocationSmoother {
     private var lastAcceptedLocation: Location? = null
     private var lastAcceptedTime: Long = 0
 
+    // Distance anchor (deadband filter to prevent drift)
+    private var lastAnchorPoint: LatLng? = null
+    private val ANCHOR_DISTANCE_THRESHOLD = 10.0 // meters - must move 10m to update anchor
+
     // Stationary detection
     private var stationaryStartTime: Long = 0
     private var stationaryPosition: LatLng? = null
@@ -31,8 +43,8 @@ class LocationSmoother {
     // Last valid update timestamp
     private var lastUpdateTime: Long = 0
 
-    // Noise rejection thresholds
-    private val MAX_ACCURACY_METERS = 20f
+    // Noise rejection thresholds - STRICT ACCURACY GATE
+    private val MAX_ACCURACY_METERS = 20f // Strict: only high-confidence points
     private val MAX_VELOCITY_MS = 20.0 // meters/second (72 km/h max for walking/running)
 
     // Impossible speed rejection
@@ -125,15 +137,16 @@ class LocationSmoother {
             }
         }
 
-        // --- Noise Rejection ---
+        // --- Signal Hygiene: Accuracy Gate (Trash Filter) ---
 
-        // Reject poor accuracy readings
-        if (rawLocation.hasAccuracy() && rawLocation.accuracy > MAX_ACCURACY_METERS) {
-            println("❌ [LocationSmoother] Rejected: poor accuracy (${rawLocation.accuracy}m)")
+        // STRICT: Only accept high-confidence GPS points
+        if (!rawLocation.hasAccuracy() || rawLocation.accuracy > MAX_ACCURACY_METERS) {
+            val acc = if (rawLocation.hasAccuracy()) rawLocation.accuracy else Float.MAX_VALUE
+            println("🚮 [LocationSmoother] ACCURACY GATE REJECTED: ${acc}m (threshold: ${MAX_ACCURACY_METERS}m)")
             return createSmoothedLocation(currentTime)
         }
 
-        // Reject unrealistic velocity jumps (if we have previous data)
+        // --- Noise Rejection: Unrealistic Velocity ---
         if (previousLocation != null && lastUpdateTime > 0) {
             val dt = (currentTime - lastUpdateTime) / 1000.0 // seconds
             if (dt > 0 && dt < 60) {
@@ -168,10 +181,36 @@ class LocationSmoother {
         lastAcceptedLocation = rawLocation
         lastAcceptedTime = currentTime
 
-        // --- Stationary Detection ---
+        // --- Distance Anchor Logic (Deadband Filter) ---
 
         val filteredLat = kalmanFilter.getLatitude()
         val filteredLng = kalmanFilter.getLongitude()
+        val filteredPoint = LatLng(filteredLat, filteredLng)
+
+        if (lastAnchorPoint == null) {
+            // First point - initialize anchor
+            lastAnchorPoint = filteredPoint
+            println("⚓ [LocationSmoother] Anchor initialized at first point")
+        } else {
+            // Calculate distance from anchor
+            val distanceFromAnchor = calculateDistance(
+                lastAnchorPoint!!.latitude,
+                lastAnchorPoint!!.longitude,
+                filteredLat,
+                filteredLng
+            )
+
+            if (distanceFromAnchor >= ANCHOR_DISTANCE_THRESHOLD) {
+                // User has moved beyond deadband - update anchor
+                lastAnchorPoint = filteredPoint
+                println("⚓ [LocationSmoother] Anchor updated - moved ${distanceFromAnchor.toInt()}m (threshold: ${ANCHOR_DISTANCE_THRESHOLD}m)")
+            } else {
+                // Within deadband - ignore small movements to prevent drift
+                println("🔒 [LocationSmoother] Within anchor deadband - ${distanceFromAnchor.toInt()}m (ignoring to prevent drift)")
+            }
+        }
+
+        // --- Stationary Detection ---
 
         if (previousLocation != null) {
             val distanceFromPrevious = calculateDistance(
@@ -271,6 +310,7 @@ class LocationSmoother {
         previousLocation = null
         lastAcceptedLocation = null
         lastAcceptedTime = 0
+        lastAnchorPoint = null
         stationaryPosition = null
         stationaryStartTime = 0
         lastUpdateTime = 0
@@ -283,6 +323,13 @@ class LocationSmoother {
      */
     fun getCurrentSmoothedLocation(): Location? {
         return previousLocation
+    }
+
+    /**
+     * Get the current anchor point (for distance calculations)
+     */
+    fun getAnchorPoint(): LatLng? {
+        return lastAnchorPoint
     }
 }
 
