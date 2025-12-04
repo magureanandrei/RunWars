@@ -88,7 +88,6 @@ fun HomeScreen(navController: NavController) {
     val locationRequest = remember {
         LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 3_000L)
             .setMinUpdateIntervalMillis(2_000L)
-            .setMinUpdateDistanceMeters(5f)
             .build()
     }
 
@@ -119,18 +118,37 @@ fun HomeScreen(navController: NavController) {
                 val newLocation = LatLng(loc.latitude, loc.longitude)
                 println("✅ New location: ${newLocation.latitude}, ${newLocation.longitude}")
 
-                // Add point to path
-                pathPoints = pathPoints + newLocation
-                println("📍 Path now has ${pathPoints.size} points")
+                // Minimum distance threshold to prevent GPS jitter (8 meters)
+                val minDistanceThreshold = 8.0 // meters
 
-                // Calculate distance
-                if (pathPoints.size >= 2) {
-                    val oldDistance = distanceMeters
-                    distanceMeters = SphericalUtil.computeLength(pathPoints)
-                    println("📏 Distance updated: $oldDistance -> $distanceMeters meters")
+                // Check if we should add this point
+                val shouldAddPoint = if (pathPoints.isEmpty()) {
+                    // Always add the first point
+                    true
+                } else {
+                    // Only add if distance from last point is >= threshold
+                    val lastPoint = pathPoints.last()
+                    val distanceFromLast = SphericalUtil.computeDistanceBetween(lastPoint, newLocation)
+                    println("📏 Distance from last point: $distanceFromLast meters (threshold: $minDistanceThreshold)")
+                    distanceFromLast >= minDistanceThreshold
                 }
 
-                // Update camera to follow user
+                if (shouldAddPoint) {
+                    // Add point to path
+                    pathPoints = pathPoints + newLocation
+                    println("📍 Point added! Path now has ${pathPoints.size} points")
+
+                    // Calculate distance
+                    if (pathPoints.size >= 2) {
+                        val oldDistance = distanceMeters
+                        distanceMeters = SphericalUtil.computeLength(pathPoints)
+                        println("📏 Distance updated: $oldDistance -> $distanceMeters meters")
+                    }
+                } else {
+                    println("⏭️ Point skipped (too close to last point)")
+                }
+
+                // Always update camera to follow user (even if point not added)
                 currentLocation = newLocation
                 cameraPositionState.position =
                     com.google.android.gms.maps.model.CameraPosition.fromLatLngZoom(newLocation, 16f)
