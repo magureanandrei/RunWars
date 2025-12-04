@@ -198,10 +198,19 @@ class LocationTrackingService : Service() {
         )
 
         val distanceKm = _distanceMeters.value / 1000
-        val contentText = if (_pathPoints.value.isEmpty()) {
-            "Starting run..."
+
+        // Calculate territory in hectares
+        val territoryHa = if (_pathPoints.value.size >= 3) {
+            val areaSqMeters = SphericalUtil.computeArea(_pathPoints.value)
+            areaSqMeters / 10000.0 // Convert to hectares (1 ha = 10,000 m²)
         } else {
-            String.format(Locale.US, "%.2f km · %d points", distanceKm, _pathPoints.value.size)
+            0.0
+        }
+
+        val contentText = when {
+            _pathPoints.value.isEmpty() -> "Starting run..."
+            territoryHa > 0 -> String.format(Locale.US, "%.2f km · %.2f ha captured", distanceKm, territoryHa)
+            else -> String.format(Locale.US, "%.2f km", distanceKm)
         }
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
