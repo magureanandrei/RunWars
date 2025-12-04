@@ -28,6 +28,7 @@ fun RegisterScreen(navController: androidx.navigation.NavController,
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var isLoading by remember { mutableStateOf(false) }
 
     // Extract register logic into a function for reuse
     val performRegister: () -> Unit = {
@@ -35,7 +36,9 @@ fun RegisterScreen(navController: androidx.navigation.NavController,
             errorMessage = "All fields are required"
         } else {
             errorMessage = null
+            isLoading = true
             viewModel.signUp(firstName, lastName, userName, email, password, { success, error ->
+                isLoading = false
                 if(success){
                     navController.navigate("home")
                 }
@@ -73,6 +76,7 @@ fun RegisterScreen(navController: androidx.navigation.NavController,
                 onValueChange = { firstName = it },
                 label = { Text("First Name", color = Color(0xFFAAAAAA)) },
                 singleLine = true,
+                enabled = !isLoading,
                 keyboardOptions = KeyboardOptions(
                     imeAction = ImeAction.Next
                 ),
@@ -86,7 +90,10 @@ fun RegisterScreen(navController: androidx.navigation.NavController,
                     focusedLabelColor = Color(0xFF8E5DFF),
                     unfocusedLabelColor = Color(0xFFAAAAAA),
                     focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White
+                    unfocusedTextColor = Color.White,
+                    disabledBorderColor = Color(0xFF8E5DFF).copy(alpha = 0.5f),
+                    disabledLabelColor = Color(0xFFAAAAAA).copy(alpha = 0.5f),
+                    disabledTextColor = Color.White.copy(alpha = 0.5f)
                 )
             )
 
@@ -96,6 +103,7 @@ fun RegisterScreen(navController: androidx.navigation.NavController,
                 onValueChange = { lastName = it },
                 label = { Text("Last Name", color = Color(0xFFAAAAAA)) },
                 singleLine = true,
+                enabled = !isLoading,
                 keyboardOptions = KeyboardOptions(
                     imeAction = ImeAction.Next
                 ),
@@ -109,7 +117,10 @@ fun RegisterScreen(navController: androidx.navigation.NavController,
                     focusedLabelColor = Color(0xFF8E5DFF),
                     unfocusedLabelColor = Color(0xFFAAAAAA),
                     focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White
+                    unfocusedTextColor = Color.White,
+                    disabledBorderColor = Color(0xFF8E5DFF).copy(alpha = 0.5f),
+                    disabledLabelColor = Color(0xFFAAAAAA).copy(alpha = 0.5f),
+                    disabledTextColor = Color.White.copy(alpha = 0.5f)
                 )
             )
 
@@ -119,6 +130,7 @@ fun RegisterScreen(navController: androidx.navigation.NavController,
                 onValueChange = { userName = it },
                 label = { Text("User Name", color = Color(0xFFAAAAAA)) },
                 singleLine = true,
+                enabled = !isLoading,
                 keyboardOptions = KeyboardOptions(
                     imeAction = ImeAction.Next
                 ),
@@ -132,7 +144,10 @@ fun RegisterScreen(navController: androidx.navigation.NavController,
                     focusedLabelColor = Color(0xFF8E5DFF),
                     unfocusedLabelColor = Color(0xFFAAAAAA),
                     focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White
+                    unfocusedTextColor = Color.White,
+                    disabledBorderColor = Color(0xFF8E5DFF).copy(alpha = 0.5f),
+                    disabledLabelColor = Color(0xFFAAAAAA).copy(alpha = 0.5f),
+                    disabledTextColor = Color.White.copy(alpha = 0.5f)
                 )
             )
 
@@ -142,6 +157,7 @@ fun RegisterScreen(navController: androidx.navigation.NavController,
                 onValueChange = { email = it },
                 label = { Text("Email", color = Color(0xFFAAAAAA)) },
                 singleLine = true,
+                enabled = !isLoading,
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Email,
                     imeAction = ImeAction.Next
@@ -156,7 +172,10 @@ fun RegisterScreen(navController: androidx.navigation.NavController,
                     focusedLabelColor = Color(0xFF8E5DFF),
                     unfocusedLabelColor = Color(0xFFAAAAAA),
                     focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White
+                    unfocusedTextColor = Color.White,
+                    disabledBorderColor = Color(0xFF8E5DFF).copy(alpha = 0.5f),
+                    disabledLabelColor = Color(0xFFAAAAAA).copy(alpha = 0.5f),
+                    disabledTextColor = Color.White.copy(alpha = 0.5f)
                 )
             )
 
@@ -166,6 +185,7 @@ fun RegisterScreen(navController: androidx.navigation.NavController,
                 onValueChange = { password = it },
                 label = { Text("Password", color = Color(0xFFAAAAAA)) },
                 singleLine = true,
+                enabled = !isLoading,
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Password,
@@ -184,27 +204,41 @@ fun RegisterScreen(navController: androidx.navigation.NavController,
                     focusedLabelColor = Color(0xFF8E5DFF),
                     unfocusedLabelColor = Color(0xFFAAAAAA),
                     focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White
+                    unfocusedTextColor = Color.White,
+                    disabledBorderColor = Color(0xFF8E5DFF).copy(alpha = 0.5f),
+                    disabledLabelColor = Color(0xFFAAAAAA).copy(alpha = 0.5f),
+                    disabledTextColor = Color.White.copy(alpha = 0.5f)
                 )
             )
 
             // Buton Register
             Button(
                 onClick = performRegister,
+                enabled = !isLoading,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(55.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color.Black,
-                    contentColor = Color.White
+                    contentColor = Color.White,
+                    disabledContainerColor = Color.Black.copy(alpha = 0.5f),
+                    disabledContentColor = Color.White.copy(alpha = 0.5f)
                 ),
                 shape = MaterialTheme.shapes.medium
             ) {
-                Text(
-                    text = "Register",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text(
+                        text = "Register",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
             if(!errorMessage.isNullOrEmpty()){
                 Spacer(Modifier.height(8.dp))
@@ -214,11 +248,12 @@ fun RegisterScreen(navController: androidx.navigation.NavController,
             // Text de revenire la Login
             TextButton(
                 onClick = { navController.popBackStack() },
+                enabled = !isLoading,
                 modifier = Modifier.padding(top = 16.dp)
             ) {
                 Text(
                     text = "Already have an account? Login",
-                    color = Color(0xFF8E5DFF),
+                    color = if (isLoading) Color(0xFF8E5DFF).copy(alpha = 0.5f) else Color(0xFF8E5DFF),
                     fontSize = 14.sp,
                     softWrap = true
                 )

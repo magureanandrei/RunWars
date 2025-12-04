@@ -599,8 +599,27 @@ fun HomeScreen(navController: NavController) {
                 }
             }
 
-            // Recenter map FAB - only show when running and zoomed out
-            if (isRunning && cameraPositionState.position.zoom < 15f) {
+            // Recenter map FAB - show when running and (zoomed out OR user panned away)
+            // Calculate distance between camera center and user's actual location
+            val cameraCenterLat = cameraPositionState.position.target.latitude
+            val cameraCenterLng = cameraPositionState.position.target.longitude
+            val userLat = currentLocation.latitude
+            val userLng = currentLocation.longitude
+
+            // Calculate distance in meters using Haversine formula
+            val earthRadius = 6371000.0 // meters
+            val dLat = Math.toRadians(userLat - cameraCenterLat)
+            val dLng = Math.toRadians(userLng - cameraCenterLng)
+            val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                    Math.cos(Math.toRadians(cameraCenterLat)) * Math.cos(Math.toRadians(userLat)) *
+                    Math.sin(dLng / 2) * Math.sin(dLng / 2)
+            val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+            val distanceFromCenter = earthRadius * c
+
+            // Show button if zoomed out (< 15) OR if user is more than 100 meters away from their location
+            val shouldShowRecenterButton = isRunning && (cameraPositionState.position.zoom < 15f || distanceFromCenter > 100)
+
+            if (shouldShowRecenterButton) {
                 FloatingActionButton(
                     onClick = {
                         scope.launch {

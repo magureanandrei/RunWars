@@ -23,6 +23,7 @@ fun LoginScreen(navController: androidx.navigation.NavController, viewModel: Log
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var isLoading by remember { mutableStateOf(false) }
 
     // Extract login logic into a function for reuse
     val performLogin: () -> Unit = {
@@ -30,7 +31,9 @@ fun LoginScreen(navController: androidx.navigation.NavController, viewModel: Log
             errorMessage = "All fields are required"
         } else {
             errorMessage = null
+            isLoading = true
             viewModel.login(email, password, { success, error ->
+                isLoading = false
                 if(success){
                     navController.navigate("home")
                 }
@@ -68,6 +71,7 @@ fun LoginScreen(navController: androidx.navigation.NavController, viewModel: Log
                 onValueChange = { email = it },
                 label = { Text("Email", color = Color(0xFFAAAAAA)) },
                 singleLine = true,
+                enabled = !isLoading,
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Email,
                     imeAction = ImeAction.Next
@@ -82,7 +86,10 @@ fun LoginScreen(navController: androidx.navigation.NavController, viewModel: Log
                     focusedLabelColor = Color(0xFF8E5DFF),
                     unfocusedLabelColor = Color(0xFFAAAAAA),
                     focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White
+                    unfocusedTextColor = Color.White,
+                    disabledBorderColor = Color(0xFF8E5DFF).copy(alpha = 0.5f),
+                    disabledLabelColor = Color(0xFFAAAAAA).copy(alpha = 0.5f),
+                    disabledTextColor = Color.White.copy(alpha = 0.5f)
                 )
             )
 
@@ -92,6 +99,7 @@ fun LoginScreen(navController: androidx.navigation.NavController, viewModel: Log
                 onValueChange = { password = it },
                 label = { Text("Password", color = Color(0xFFAAAAAA)) },
                 singleLine = true,
+                enabled = !isLoading,
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Password,
@@ -110,28 +118,42 @@ fun LoginScreen(navController: androidx.navigation.NavController, viewModel: Log
                     focusedLabelColor = Color(0xFF8E5DFF),
                     unfocusedLabelColor = Color(0xFFAAAAAA),
                     focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White
+                    unfocusedTextColor = Color.White,
+                    disabledBorderColor = Color(0xFF8E5DFF).copy(alpha = 0.5f),
+                    disabledLabelColor = Color(0xFFAAAAAA).copy(alpha = 0.5f),
+                    disabledTextColor = Color.White.copy(alpha = 0.5f)
                 )
             )
 
             // Buton Login
             Button(
                 onClick = performLogin,
+                enabled = !isLoading,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(55.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color.Black,
-                    contentColor = Color.White
+                    contentColor = Color.White,
+                    disabledContainerColor = Color.Black.copy(alpha = 0.5f),
+                    disabledContentColor = Color.White.copy(alpha = 0.5f)
                 ),
                 shape = MaterialTheme.shapes.medium
 
             ) {
-                Text(
-                    text = "Login",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text(
+                        text = "Login",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
             if(!errorMessage.isNullOrEmpty()){
                 Spacer(Modifier.height(8.dp))
@@ -141,11 +163,12 @@ fun LoginScreen(navController: androidx.navigation.NavController, viewModel: Log
             // Text de trecere la Register
             TextButton(
                 onClick = { navController.navigate("register") },
+                enabled = !isLoading,
                 modifier = Modifier.padding(top = 16.dp)
             ) {
                 Text(
                     text = "Don't have an account? Register",
-                    color = Color(0xFF8E5DFF),
+                    color = if (isLoading) Color(0xFF8E5DFF).copy(alpha = 0.5f) else Color(0xFF8E5DFF),
                     fontSize = 14.sp
                 )
             }
