@@ -1,6 +1,7 @@
 package tech.titans.runwars
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -8,6 +9,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -21,6 +23,23 @@ fun LoginScreen(navController: androidx.navigation.NavController, viewModel: Log
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    // Extract login logic into a function for reuse
+    val performLogin: () -> Unit = {
+        if(email.isEmpty() || password.isEmpty()){
+            errorMessage = "All fields are required"
+        } else {
+            errorMessage = null
+            viewModel.login(email, password, { success, error ->
+                if(success){
+                    navController.navigate("home")
+                }
+                else{
+                    errorMessage = error ?: "Login failed"
+                }
+            })
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -49,7 +68,10 @@ fun LoginScreen(navController: androidx.navigation.NavController, viewModel: Log
                 onValueChange = { email = it },
                 label = { Text("Email", color = Color(0xFFAAAAAA)) },
                 singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Email,
+                    imeAction = ImeAction.Next
+                ),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 20.dp),
@@ -71,7 +93,13 @@ fun LoginScreen(navController: androidx.navigation.NavController, viewModel: Log
                 label = { Text("Password", color = Color(0xFFAAAAAA)) },
                 singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Password,
+                    imeAction = ImeAction.Done
+                ),
+                keyboardActions = KeyboardActions(
+                    onDone = { performLogin() }
+                ),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 30.dp),
@@ -88,20 +116,7 @@ fun LoginScreen(navController: androidx.navigation.NavController, viewModel: Log
 
             // Buton Login
             Button(
-                onClick = {
-                    if(email.isEmpty() || password.isEmpty()){
-                        errorMessage = "All fields are required"
-                        return@Button
-                    }
-                    errorMessage = null
-                    viewModel.login(email, password, { success, error ->
-                        if(success){
-                           navController.navigate("home")
-                        }
-                        else{
-                            errorMessage = error ?: "Login failed"
-                        }
-                    }) },
+                onClick = performLogin,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(55.dp),

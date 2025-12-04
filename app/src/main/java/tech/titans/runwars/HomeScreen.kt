@@ -15,6 +15,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -492,7 +493,8 @@ fun HomeScreen(navController: NavController) {
             // Google Map
             GoogleMap(
                 modifier = Modifier.fillMaxSize(),
-                cameraPositionState = cameraPositionState
+                cameraPositionState = cameraPositionState,
+                uiSettings = MapUiSettings(zoomControlsEnabled = false)
             ) {
                 // Custom user position marker
                 Marker(
@@ -503,11 +505,11 @@ fun HomeScreen(navController: NavController) {
                     flat = true
                 )
 
-                // Running path (cyan line)
+                // Running path (polyline)
                 if (pathPoints.size >= 2) {
                     Polyline(
                         points = pathPoints,
-                        color = if (isRunning) Color.Cyan else Color.Blue,
+                        color = if (isRunning) Color.Cyan else Color(0xFF2D3E6F),
                         width = 8f
                     )
                 }
@@ -523,7 +525,7 @@ fun HomeScreen(navController: NavController) {
                     Polygon(
                         points = closedPath,
                         fillColor = Color(0x552D3E6F),
-                        strokeColor = Color.Blue,
+                        strokeColor = Color(0xFF2D3E6F),
                         strokeWidth = 4f
                     )
                 }
@@ -597,7 +599,7 @@ fun HomeScreen(navController: NavController) {
                 }
             }
 
-            // Recenter map button (above start/finish button) - only show when running and zoomed out
+            // Recenter map FAB - only show when running and zoomed out
             if (isRunning && cameraPositionState.position.zoom < 15f) {
                 FloatingActionButton(
                     onClick = {
@@ -613,24 +615,20 @@ fun HomeScreen(navController: NavController) {
                     },
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(end = 24.dp, bottom = 90.dp),
-                    containerColor = Color(0xFF2D3E6F),
-                    contentColor = Color.White
+                        .padding(end = 16.dp, bottom = 100.dp)
+                        .size(56.dp),
+                    containerColor = Color(0xFF1E2A47),
+                    contentColor = Color.White,
+                    elevation = FloatingActionButtonDefaults.elevation(
+                        defaultElevation = 6.dp,
+                        pressedElevation = 12.dp
+                    )
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.padding(horizontal = 8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Menu, // We'll use a placeholder, ideally use a target/location icon
-                            contentDescription = "Recenter",
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Text(
-                            text = "Recenter",
-                            fontSize = 10.sp
-                        )
-                    }
+                    Icon(
+                        imageVector = Icons.Default.LocationOn,
+                        contentDescription = "Recenter Map",
+                        modifier = Modifier.size(24.dp)
+                    )
                 }
             }
 
