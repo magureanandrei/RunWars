@@ -228,8 +228,7 @@ fun HomeScreen(navController: NavController) {
                     Spacer(modifier = Modifier.height(8.dp))
 
                     if (isLoop && capturedAreaMeters2!! > 0) {
-                        Text("Territory: %.0f m² (%.2f hectares)".format(
-                            capturedAreaMeters2!!,
+                        Text("Territory: %.2f ha".format(
                             capturedAreaMeters2!! / 10_000
                         ))
                     } else {
@@ -483,7 +482,7 @@ fun HomeScreen(navController: NavController) {
                     if (!isRunning && capturedAreaMeters2 != null && capturedAreaMeters2!! > 0 && isClosedLoop(pathPoints)) {
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Territory: %.0f m²".format(capturedAreaMeters2),
+                            text = "Territory: %.2f ha".format(capturedAreaMeters2!! / 10_000),
                             color = Color.Cyan,
                             fontSize = 16.sp
                         )
