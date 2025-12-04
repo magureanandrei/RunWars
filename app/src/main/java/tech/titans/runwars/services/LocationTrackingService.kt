@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import tech.titans.runwars.MainActivity
 import tech.titans.runwars.R
+import tech.titans.runwars.utils.LocationSmoother
 import java.util.Locale
 
 class LocationTrackingService : Service() {
@@ -28,6 +29,9 @@ class LocationTrackingService : Service() {
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var locationCallback: LocationCallback
     private var notificationManager: NotificationManager? = null
+
+    // GPS Smoothing system
+    private val locationSmoother = LocationSmoother()
 
     // State flows for reactive updates
     private val _pathPoints = MutableStateFlow<List<LatLng>>(emptyList())
@@ -66,10 +70,15 @@ class LocationTrackingService : Service() {
             override fun onLocationResult(result: LocationResult) {
                 if (!_isTracking.value) return
 
-                val location = result.lastLocation ?: return
-                val newLocation = LatLng(location.latitude, location.longitude)
+                val rawLocation = result.lastLocation ?: return
 
-                println("🔍 [Service] Location update: ${newLocation.latitude}, ${newLocation.longitude}")
+                println("📍 [Service] Raw GPS: ${rawLocation.latitude}, ${rawLocation.longitude}, accuracy: ${rawLocation.accuracy}m")
+
+                // Apply Kalman filtering and smoothing
+                val smoothedLocation = locationSmoother.addLocation(rawLocation)
+                val newLocation = LatLng(smoothedLocation.latitude, smoothedLocation.longitude)
+
+                println("✨ [Service] Smoothed: ${newLocation.latitude}, ${newLocation.longitude}, accuracy: ${smoothedLocation.accuracy}m")
 
                 // Update current location for UI
                 _currentLocation.value = newLocation
@@ -164,6 +173,7 @@ class LocationTrackingService : Service() {
         _pathPoints.value = emptyList()
         _distanceMeters.value = 0.0
         _currentLocation.value = null
+        locationSmoother.reset()
     }
 
     fun continueTracking(existingPoints: List<LatLng>, existingDistance: Double) {
