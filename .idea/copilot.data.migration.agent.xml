@@ -3,10 +3,24 @@
   <component name="AgentMigrationStateService">
     <option name="migrationStatus" value="IN_PROGRESS" />
     <option name="pendingSessionIds">
+      <option value="12428673-3391-4af9-af84-ab4ad6c1ee5e" />
+      <option value="231b6ae6-449b-4ae7-a2bb-c16b2143b0cd" />
       <option value="259967da-7c24-4ebd-b25e-d68c670cb92a" />
+      <option value="4a4c9f9f-f537-40f6-902b-77a3a4d7b56a" />
+      <option value="7e56ec88-d18f-4384-ac4d-edd697704a13" />
+      <option value="ae68e4e8-5b62-49be-ad6c-0b2a638fab25" />
     </option>
     <option name="pendingTurns">
       <map>
+        <entry key="12428673-3391-4af9-af84-ab4ad6c1ee5e">
+          <value>
+            <set>
+              <option value="847a686d-a891-4294-9186-7f1eb230f430" />
+              <option value="8f61aeb7-2cfa-4cf9-8373-3df6624bd1ea" />
+              <option value="916bda80-c6ab-4959-9cd1-a6bfba40a175" />
+            </set>
+          </value>
+        </entry>
         <entry key="259967da-7c24-4ebd-b25e-d68c670cb92a">
           <value>
             <set>
@@ -25,11 +39,7 @@
       </map>
     </option>
     <pendingWorkingSetItems>
-      <entry key="259967da-7c24-4ebd-b25e-d68c670cb92a">
-        <set>
-          <option value="file://$PROJECT_DIR$/app/src/main/java/tech/titans/runwars/HomeScreen.kt" />
-        </set>
-      </entry>
+      <entry key="259967da-7c24-4ebd-b25e-d68c670cb92a" />
     </pendingWorkingSetItems>
   </component>
 </project>
