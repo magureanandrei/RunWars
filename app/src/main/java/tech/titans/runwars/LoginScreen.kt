@@ -48,6 +48,7 @@ fun LoginScreen(navController: androidx.navigation.NavController, viewModel: Log
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF2C1E3C))
+            .windowInsetsPadding(WindowInsets.systemBars)
             .padding(24.dp),
         contentAlignment = Alignment.Center
     ) {

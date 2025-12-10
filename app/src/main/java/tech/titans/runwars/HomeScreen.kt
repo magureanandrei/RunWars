@@ -14,6 +14,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Menu
@@ -540,6 +543,7 @@ fun HomeScreen(navController: NavController) {
                 },
                 modifier = Modifier
                     .align(Alignment.TopEnd)
+                    .windowInsetsPadding(WindowInsets.systemBars)
                     .padding(16.dp)
                     .size(48.dp),
                 shape = androidx.compose.foundation.shape.CircleShape,
@@ -561,6 +565,7 @@ fun HomeScreen(navController: NavController) {
                 Column(
                     modifier = Modifier
                         .align(Alignment.TopStart)
+                        .windowInsetsPadding(WindowInsets.systemBars)
                         .padding(16.dp)
                         .background(Color(0xDD1E2A47), RoundedCornerShape(12.dp))
                         .padding(horizontal = 16.dp, vertical = 12.dp)
@@ -652,12 +657,12 @@ fun HomeScreen(navController: NavController) {
             }
 
             // Start/Finish button (bottom)
-            Box(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.BottomCenter)
                     .background(Color(0xEE1E2A47))
-                    .padding(vertical = 16.dp, horizontal = 24.dp)
+                    .windowInsetsPadding(WindowInsets.navigationBars)
             ) {
                 Button(
                     onClick = {
@@ -725,7 +730,7 @@ fun HomeScreen(navController: NavController) {
                         }
                     },
                     modifier = Modifier
-                        .align(Alignment.Center)
+                        .padding(vertical = 12.dp, horizontal = 24.dp)
                         .fillMaxWidth()
                         .height(56.dp),
                     shape = RoundedCornerShape(28.dp),

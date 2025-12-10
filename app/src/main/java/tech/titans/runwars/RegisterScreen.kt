@@ -53,6 +53,7 @@ fun RegisterScreen(navController: androidx.navigation.NavController,
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF2C1E3C))
+            .windowInsetsPadding(WindowInsets.systemBars)
             .padding(24.dp),
         contentAlignment = Alignment.Center
     ) {
