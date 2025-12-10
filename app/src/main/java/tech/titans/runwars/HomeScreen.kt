@@ -26,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.geometry.Offset
@@ -485,26 +486,79 @@ fun HomeScreen(navController: NavController) {
                 drawerContainerColor = Color(0xFF1E2A47),
                 modifier = Modifier.width(280.dp)
             ) {
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = "RunWars",
-                    modifier = Modifier.padding(16.dp),
-                    color = Color.White,
-                    fontSize = 24.sp,
-                    style = MaterialTheme.typography.headlineMedium
-                )
-                HorizontalDivider(color = Color.White.copy(alpha = 0.2f))
-                listOf("Profile", "Statistics", "Leaderboard", "Settings").forEach {
+                Column(
+                    modifier = Modifier.fillMaxHeight()
+                ) {
+                    // Header
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "RunWars",
+                        modifier = Modifier.padding(16.dp),
+                        color = Color.White,
+                        fontSize = 24.sp,
+                        style = MaterialTheme.typography.headlineMedium
+                    )
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.2f))
+
+                    // Menu items
+                    listOf("Profile", "Statistics", "Leaderboard", "Settings").forEach {
+                        NavigationDrawerItem(
+                            label = { Text(it, color = Color.White) },
+                            selected = false,
+                            onClick = {},
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                            colors = NavigationDrawerItemDefaults.colors(
+                                unselectedContainerColor = Color.Transparent,
+                                selectedContainerColor = Color(0xFF2D3E6F)
+                            )
+                        )
+                    }
+
+                    // Spacer to push logout to bottom
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.2f))
+
+                    // Logout button
                     NavigationDrawerItem(
-                        label = { Text(it, color = Color.White) },
+                        label = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Start
+                            ) {
+                                Icon(
+                                    painter = painterResource(id = android.R.drawable.ic_menu_close_clear_cancel),
+                                    contentDescription = "Logout",
+                                    tint = Color(0xFFFF6B6B),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    "Logout",
+                                    color = Color(0xFFFF6B6B),
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
+                                )
+                            }
+                        },
                         selected = false,
-                        onClick = {},
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                        onClick = {
+                            scope.launch {
+                                drawerState.close()
+
+                                // Navigate to login screen
+                                navController.navigate("login") {
+                                    popUpTo("home") { inclusive = true }
+                                }
+                            }
+                        },
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                         colors = NavigationDrawerItemDefaults.colors(
                             unselectedContainerColor = Color.Transparent,
                             selectedContainerColor = Color(0xFF2D3E6F)
                         )
                     )
+
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
             }
         }

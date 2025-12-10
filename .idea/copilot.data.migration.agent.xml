@@ -113,6 +113,9 @@
               <option value="3ebfdb01-4b68-410e-83b8-9da1b91c6669" />
               <option value="27f78309-45d2-4647-91de-d7b5b78a382b" />
               <option value="c22ba323-612b-401b-803e-0e5ae7f01a30" />
+              <option value="05dcf7f3-49ec-487d-9aa9-ce808144e1fb" />
+              <option value="40c8d451-046b-407a-9b5f-0c7c06a015b3" />
+              <option value="15e999af-ed4e-4f79-97b5-5e87150c42dc" />
             </set>
           </value>
         </entry>
@@ -135,6 +138,9 @@
         <set>
           <option value="file://$PROJECT_DIR$/app/src/main/java/tech/titans/runwars/services/LocationTrackingService.kt" />
           <option value="file://$PROJECT_DIR$/app/src/main/java/tech/titans/runwars/HomeScreen.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/tech/titans/runwars/LoginScreen.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/tech/titans/runwars/RegisterScreen.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/tech/titans/runwars/MainActivity.kt" />
         </set>
       </entry>
     </pendingWorkingSetItems>
