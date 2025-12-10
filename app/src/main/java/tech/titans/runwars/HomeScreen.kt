@@ -555,6 +555,15 @@ fun HomeScreen(navController: NavController) {
                 }
             }
 
+            // Dimming overlay when paused
+            if (isPaused) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.3f))
+                )
+            }
+
             // Menu button (top right)
             Surface(
                 onClick = {
