@@ -1,5 +1,6 @@
 package tech.titans.runwars
 
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -16,12 +17,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowCompat
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.google.firebase.auth.FirebaseAuth
 import tech.titans.runwars.ui.theme.RunWarsTheme
 
 class MainActivity : ComponentActivity() {
@@ -61,6 +65,10 @@ class MainActivity : ComponentActivity() {
     }*/
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Disable edge-to-edge to prevent transparent system bars on Android 14+
+        WindowCompat.setDecorFitsSystemWindows(window, true)
+
         setContent {
             RunWarsTheme {
                 Navigation()
@@ -72,8 +80,23 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun Navigation(){
     val navController = rememberNavController()
+    val context = LocalContext.current
+    val prefs = context.getSharedPreferences("RunWarsPrefs", Context.MODE_PRIVATE)
+    val stayLoggedIn = prefs.getBoolean("stayLoggedIn", false)
+    val currentUser = FirebaseAuth.getInstance().currentUser
 
-    NavHost(navController = navController, startDestination = "login"){
+    // Determine start destination based on auth state
+    val startDestination = if (currentUser != null && stayLoggedIn) {
+        "home"
+    } else {
+        if (currentUser != null && !stayLoggedIn) {
+            // User is logged in but didn't check "stay logged in", so log them out
+            FirebaseAuth.getInstance().signOut()
+        }
+        "login"
+    }
+
+    NavHost(navController = navController, startDestination = startDestination){
         composable("login") { LoginScreen(navController) }
         composable("register") { RegisterScreen(navController) }
         composable("home") { HomeScreen(navController) }

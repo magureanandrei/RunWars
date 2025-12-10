@@ -34,6 +34,11 @@ class LocationTrackingService : Service() {
     private val locationSmoother = LocationSmoother()
 
     // State flows for reactive updates
+    // Multiple segments to support path breaks (e.g., after large pause gaps)
+    private val _pathSegments = MutableStateFlow<List<List<LatLng>>>(listOf(emptyList()))
+    val pathSegments: StateFlow<List<List<LatLng>>> = _pathSegments.asStateFlow()
+
+    // Flattened path points for backward compatibility
     private val _pathPoints = MutableStateFlow<List<LatLng>>(emptyList())
     val pathPoints: StateFlow<List<LatLng>> = _pathPoints.asStateFlow()
 
@@ -46,10 +51,18 @@ class LocationTrackingService : Service() {
     private val _isTracking = MutableStateFlow(false)
     val isTracking: StateFlow<Boolean> = _isTracking.asStateFlow()
 
+    private val _isPaused = MutableStateFlow(false)
+    val isPaused: StateFlow<Boolean> = _isPaused.asStateFlow()
+
+    // Pause/resume tracking
+    private var lastLocationBeforePause: LatLng? = null
+    private var pauseStartTime: Long? = null
+
     companion object {
         private const val NOTIFICATION_ID = 1001
         private const val CHANNEL_ID = "location_tracking_channel"
         private const val MIN_DISTANCE_THRESHOLD = 8.0 // meters
+        private const val MAX_PAUSE_GAP_METERS = 50.0 // Maximum gap to continue path seamlessly
     }
 
     inner class LocationBinder : Binder() {
@@ -80,27 +93,48 @@ class LocationTrackingService : Service() {
 
                 println("✨ [Service] Smoothed: ${newLocation.latitude}, ${newLocation.longitude}, accuracy: ${smoothedLocation.accuracy}m")
 
-                // Update current location for UI
+                // Update current location for UI (even when paused)
                 _currentLocation.value = newLocation
 
+                // Skip adding points if paused
+                if (_isPaused.value) {
+                    println("⏸️ [Service] Paused - location updated but not adding point")
+                    return
+                }
+
+                // Get current segment (last in the list)
+                val currentSegment = _pathSegments.value.lastOrNull() ?: emptyList()
+
                 // Check if we should add this point (distance threshold)
-                val shouldAddPoint = if (_pathPoints.value.isEmpty()) {
+                val shouldAddPoint = if (currentSegment.isEmpty()) {
                     true
                 } else {
-                    val lastPoint = _pathPoints.value.last()
+                    val lastPoint = currentSegment.last()
                     val distanceFromLast = SphericalUtil.computeDistanceBetween(lastPoint, newLocation)
                     println("📏 [Service] Distance from last: $distanceFromLast m (threshold: $MIN_DISTANCE_THRESHOLD)")
                     distanceFromLast >= MIN_DISTANCE_THRESHOLD
                 }
 
                 if (shouldAddPoint) {
-                    // Add point to path
-                    _pathPoints.value = _pathPoints.value + newLocation
-                    println("📍 [Service] Point added! Total points: ${_pathPoints.value.size}")
+                    // Add point to current segment
+                    val updatedSegment = currentSegment + newLocation
+                    val updatedSegments = _pathSegments.value.dropLast(1) + listOf(updatedSegment)
+                    _pathSegments.value = updatedSegments
 
-                    // Calculate total distance
+                    // Update flattened pathPoints for backward compatibility
+                    _pathPoints.value = updatedSegments.flatten()
+
+                    println("📍 [Service] Point added! Segment: ${updatedSegment.size} points, Total: ${_pathPoints.value.size}")
+
+                    // Calculate total distance across all segments
                     if (_pathPoints.value.size >= 2) {
-                        _distanceMeters.value = SphericalUtil.computeLength(_pathPoints.value)
+                        var totalDistance = 0.0
+                        for (segment in updatedSegments) {
+                            if (segment.size >= 2) {
+                                totalDistance += SphericalUtil.computeLength(segment)
+                            }
+                        }
+                        _distanceMeters.value = totalDistance
                         println("📏 [Service] Total distance: ${_distanceMeters.value} m")
 
                         // Update notification with current stats
@@ -157,6 +191,7 @@ class LocationTrackingService : Service() {
 
         println("🛑 [Service] Stopping tracking...")
         _isTracking.value = false
+        _isPaused.value = false
 
         // Stop location updates
         fusedLocationClient.removeLocationUpdates(locationCallback)
@@ -168,16 +203,109 @@ class LocationTrackingService : Service() {
         println("✅ [Service] Tracking stopped")
     }
 
+    fun pauseTracking() {
+        if (!_isTracking.value) {
+            println("⚠️ [Service] Not tracking")
+            return
+        }
+
+        if (_isPaused.value) {
+            println("⚠️ [Service] Already paused")
+            return
+        }
+
+        println("⏸️ [Service] Pausing tracking...")
+        _isPaused.value = true
+        lastLocationBeforePause = _pathPoints.value.lastOrNull()
+        pauseStartTime = System.currentTimeMillis()
+        println("📍 [Service] Saved pause location: $lastLocationBeforePause")
+        updateNotification()
+        println("✅ [Service] Tracking paused")
+    }
+
+    fun resumeTracking() {
+        if (!_isTracking.value) {
+            println("⚠️ [Service] Not tracking")
+            return
+        }
+
+        if (!_isPaused.value) {
+            println("⚠️ [Service] Not paused")
+            return
+        }
+
+        println("▶️ [Service] Resuming tracking...")
+
+        // Check gap distance if we have both locations
+        val lastLoc = lastLocationBeforePause
+        val currentLoc = _currentLocation.value
+
+        if (lastLoc != null && currentLoc != null) {
+            val gapDistance = SphericalUtil.computeDistanceBetween(lastLoc, currentLoc)
+            val pauseDuration = System.currentTimeMillis() - (pauseStartTime ?: 0L)
+
+            println("🔍 [Service] Resume gap analysis:")
+            println("   Last location before pause: $lastLoc")
+            println("   Current location: $currentLoc")
+            println("   Gap distance: ${gapDistance}m")
+            println("   Pause duration: ${pauseDuration}ms")
+
+            if (gapDistance > MAX_PAUSE_GAP_METERS) {
+                // Gap too large - start a NEW SEGMENT (clearly separated)
+                println("⚠️ [Service] Gap > ${MAX_PAUSE_GAP_METERS}m detected!")
+                println("   ✂️ BREAKING PATH - Starting new segment")
+                println("   ❌ Gap distance NOT added to total")
+                println("   ❌ Path will NOT form a closed loop")
+
+                // Start a new empty segment - next location will be added there
+                _pathSegments.value = _pathSegments.value + listOf(emptyList())
+                println("   📊 Total segments: ${_pathSegments.value.size}")
+
+            } else {
+                // Gap is small enough - continue path seamlessly
+                println("✅ [Service] Gap ≤ ${MAX_PAUSE_GAP_METERS}m, continuing path seamlessly")
+                println("   Adding ${gapDistance}m to total distance")
+
+                // Add the gap distance to total
+                _distanceMeters.value += gapDistance
+
+                // Add current location to current segment to connect
+                val currentSegment = _pathSegments.value.lastOrNull() ?: emptyList()
+                if (currentSegment.lastOrNull() != currentLoc) {
+                    val updatedSegment = currentSegment + currentLoc
+                    val updatedSegments = _pathSegments.value.dropLast(1) + listOf(updatedSegment)
+                    _pathSegments.value = updatedSegments
+                    _pathPoints.value = updatedSegments.flatten()
+                }
+            }
+        } else {
+            println("⚠️ [Service] Missing location data for gap analysis")
+        }
+
+        _isPaused.value = false
+        lastLocationBeforePause = null
+        pauseStartTime = null
+        updateNotification()
+        println("✅ [Service] Tracking resumed")
+    }
+
     fun resetTracking() {
         println("🔄 [Service] Resetting tracking data...")
+        _pathSegments.value = listOf(emptyList())
         _pathPoints.value = emptyList()
         _distanceMeters.value = 0.0
         _currentLocation.value = null
+        _isPaused.value = false
         locationSmoother.reset()
     }
 
     fun continueTracking(existingPoints: List<LatLng>, existingDistance: Double) {
         println("▶️ [Service] Continuing tracking with ${existingPoints.size} existing points")
+        _pathSegments.value = if (existingPoints.isNotEmpty()) {
+            listOf(existingPoints)
+        } else {
+            listOf(emptyList())
+        }
         _pathPoints.value = existingPoints
         _distanceMeters.value = existingDistance
     }
@@ -217,14 +345,18 @@ class LocationTrackingService : Service() {
             0.0
         }
 
+        val title = if (_isPaused.value) "RunWars - Run Paused" else "RunWars - Tracking Run"
+
         val contentText = when {
             _pathPoints.value.isEmpty() -> "Starting run..."
+            _isPaused.value && territoryHa > 0 -> String.format(Locale.US, "PAUSED · %.2f km · %.2f ha", distanceKm, territoryHa)
+            _isPaused.value -> String.format(Locale.US, "PAUSED · %.2f km", distanceKm)
             territoryHa > 0 -> String.format(Locale.US, "%.2f km · %.2f ha captured", distanceKm, territoryHa)
             else -> String.format(Locale.US, "%.2f km", distanceKm)
         }
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("RunWars - Tracking Run")
+            .setContentTitle(title)
             .setContentText(contentText)
             .setSmallIcon(R.drawable.ic_stat_name)
             .setContentIntent(pendingIntent)
