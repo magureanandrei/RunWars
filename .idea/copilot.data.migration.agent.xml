@@ -101,6 +101,20 @@
             </set>
           </value>
         </entry>
+        <entry key="bb2aa778-7e39-487e-88ed-952cb3a3d043">
+          <value>
+            <set>
+              <option value="a200dcd6-3930-43da-be18-612ea4a01391" />
+              <option value="84515b23-41ee-493c-b8fe-6ac832532ecd" />
+              <option value="c67fbcb1-d79e-4c7f-9da4-6c6297b34551" />
+              <option value="c5edc0be-e61e-424c-ac2f-dbe41f6e79e4" />
+              <option value="d54c861c-0260-4806-80bd-2b608872e01b" />
+              <option value="79a7d766-2da5-487b-8808-23486618a4f6" />
+              <option value="3ebfdb01-4b68-410e-83b8-9da1b91c6669" />
+              <option value="27f78309-45d2-4647-91de-d7b5b78a382b" />
+            </set>
+          </value>
+        </entry>
       </map>
     </option>
     <pendingWorkingSetItems>
@@ -116,6 +130,12 @@
       <entry key="259967da-7c24-4ebd-b25e-d68c670cb92a" />
       <entry key="30c0b9f8-011a-484b-9280-316a9551dd6f" />
       <entry key="9eda34b9-8a7a-41f0-8aef-05fcc7691250" />
+      <entry key="bb2aa778-7e39-487e-88ed-952cb3a3d043">
+        <set>
+          <option value="file://$PROJECT_DIR$/app/src/main/java/tech/titans/runwars/services/LocationTrackingService.kt" />
+          <option value="file://$PROJECT_DIR$/app/src/main/java/tech/titans/runwars/HomeScreen.kt" />
+        </set>
+      </entry>
     </pendingWorkingSetItems>
   </component>
 </project>

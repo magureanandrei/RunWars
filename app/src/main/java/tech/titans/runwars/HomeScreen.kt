@@ -58,7 +58,9 @@ fun HomeScreen(navController: NavController) {
     // UI state from service
     var currentLocation by remember { mutableStateOf(LatLng(46.7712, 23.6236)) }
     var isRunning by remember { mutableStateOf(false) }
+    var isPaused by remember { mutableStateOf(false) }
     var pathPoints by remember { mutableStateOf(listOf<LatLng>()) }
+    var pathSegments by remember { mutableStateOf(listOf<List<LatLng>>()) }
     var distanceMeters by remember { mutableStateOf(0.0) }
     var capturedAreaMeters2 by remember { mutableStateOf<Double?>(null) }
     var showResultDialog by remember { mutableStateOf(false) }
@@ -195,8 +197,24 @@ fun HomeScreen(navController: NavController) {
 
     LaunchedEffect(serviceBound, locationService) {
         if (serviceBound && locationService != null) {
+            locationService!!.isPaused.collect { paused ->
+                isPaused = paused
+            }
+        }
+    }
+
+    LaunchedEffect(serviceBound, locationService) {
+        if (serviceBound && locationService != null) {
             locationService!!.pathPoints.collect { points ->
                 pathPoints = points
+            }
+        }
+    }
+
+    LaunchedEffect(serviceBound, locationService) {
+        if (serviceBound && locationService != null) {
+            locationService!!.pathSegments.collect { segments ->
+                pathSegments = segments
             }
         }
     }
@@ -508,13 +526,16 @@ fun HomeScreen(navController: NavController) {
                     flat = true
                 )
 
-                // Running path (polyline)
-                if (pathPoints.size >= 2) {
-                    Polyline(
-                        points = pathPoints,
-                        color = if (isRunning) Color.Cyan else Color(0xFF2D3E6F),
-                        width = 8f
-                    )
+                // Running path (multiple polylines for segments)
+                // Each segment is drawn separately to show breaks when pause gap > 50m
+                for (segment in pathSegments) {
+                    if (segment.size >= 2) {
+                        Polyline(
+                            points = segment,
+                            color = if (isRunning) Color.Cyan else Color(0xFF2D3E6F),
+                            width = 8f
+                        )
+                    }
                 }
 
                 // Show captured territory when run is finished AND it forms a loop
@@ -571,7 +592,7 @@ fun HomeScreen(navController: NavController) {
                         .padding(horizontal = 16.dp, vertical = 12.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (isRunning) {
+                        if (isRunning && !isPaused) {
                             Box(
                                 modifier = Modifier
                                     .size(8.dp)
@@ -580,8 +601,16 @@ fun HomeScreen(navController: NavController) {
                             Spacer(modifier = Modifier.width(8.dp))
                         }
                         Text(
-                            text = if (isRunning) "RUNNING" else "FINISHED",
-                            color = if (isRunning) Color.Green else Color.White,
+                            text = when {
+                                isPaused -> "PAUSED"
+                                isRunning -> "RUNNING"
+                                else -> "FINISHED"
+                            },
+                            color = when {
+                                isPaused -> Color(0xFFFF9800)
+                                isRunning -> Color.Green
+                                else -> Color.White
+                            },
                             fontSize = 12.sp,
                             fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
                         )
@@ -639,8 +668,8 @@ fun HomeScreen(navController: NavController) {
                     },
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(end = 16.dp, bottom = 100.dp)
-                        .size(56.dp),
+                        .windowInsetsPadding(WindowInsets.navigationBars)
+                        .padding(end = 16.dp, bottom = 100.dp),
                     containerColor = Color(0xFF1E2A47),
                     contentColor = Color.White,
                     elevation = FloatingActionButtonDefaults.elevation(
@@ -664,19 +693,94 @@ fun HomeScreen(navController: NavController) {
                     .background(Color(0xEE1E2A47))
                     .windowInsetsPadding(WindowInsets.navigationBars)
             ) {
-                Button(
-                    onClick = {
-                        val fineGranted = ContextCompat.checkSelfPermission(
-                            context,
-                            Manifest.permission.ACCESS_FINE_LOCATION
-                        ) == PackageManager.PERMISSION_GRANTED
-
-                        if (!fineGranted) {
-                            locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-                            return@Button
+                if (isRunning) {
+                    // When running, show two buttons: Pause/Resume and Finish
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // Pause/Resume button
+                        Button(
+                            onClick = {
+                                if (serviceBound && locationService != null) {
+                                    if (isPaused) {
+                                        println("▶️ Resuming run...")
+                                        locationService!!.resumeTracking()
+                                    } else {
+                                        println("⏸️ Pausing run...")
+                                        locationService!!.pauseTracking()
+                                    }
+                                }
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(56.dp),
+                            shape = RoundedCornerShape(28.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isPaused) Color(0xFF4CAF50) else Color(0xFFFF9800)
+                            )
+                        ) {
+                            Text(
+                                if (isPaused) "RESUME" else "PAUSE",
+                                color = Color.White,
+                                fontSize = 18.sp,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                            )
                         }
 
-                        if (!isRunning) {
+                        // Finish button
+                        Button(
+                            onClick = {
+                                println("🛑 Finishing run via service...")
+
+                                // Stop service tracking
+                                if (serviceBound && locationService != null) {
+                                    locationService!!.stopTracking()
+                                }
+
+                                // Calculate captured territory only if it's a closed loop
+                                capturedAreaMeters2 =
+                                    if (pathPoints.size >= 3 && isClosedLoop(pathPoints)) {
+                                        calculateCapturedArea(pathPoints)
+                                    } else {
+                                        0.0
+                                    }
+
+                                // Show result dialog
+                                showResultDialog = true
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(56.dp),
+                            shape = RoundedCornerShape(28.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFFD32F2F)
+                            )
+                        ) {
+                            Text(
+                                "FINISH RUN",
+                                color = Color.White,
+                                fontSize = 18.sp,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                            )
+                        }
+                    }
+                } else {
+                    // When not running, show only Start button
+                    Button(
+                        onClick = {
+                            val fineGranted = ContextCompat.checkSelfPermission(
+                                context,
+                                Manifest.permission.ACCESS_FINE_LOCATION
+                            ) == PackageManager.PERMISSION_GRANTED
+
+                            if (!fineGranted) {
+                                locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                                return@Button
+                            }
+
                             // START RUN
                             println("🏁 Starting run via service...")
 
@@ -708,42 +812,23 @@ fun HomeScreen(navController: NavController) {
                             }
 
                             continueRun = false
-                        } else {
-                            // FINISH RUN
-                            println("🛑 Finishing run via service...")
-
-                            // Stop service tracking
-                            if (serviceBound && locationService != null) {
-                                locationService!!.stopTracking()
-                            }
-
-                            // Calculate captured territory only if it's a closed loop
-                            capturedAreaMeters2 =
-                                if (pathPoints.size >= 3 && isClosedLoop(pathPoints)) {
-                                    calculateCapturedArea(pathPoints)
-                                } else {
-                                    0.0
-                                }
-
-                            // Show result dialog
-                            showResultDialog = true
-                        }
-                    },
-                    modifier = Modifier
-                        .padding(vertical = 12.dp, horizontal = 24.dp)
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    shape = RoundedCornerShape(28.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isRunning) Color(0xFFD32F2F) else Color(0xFF2D3E6F)
-                    )
-                ) {
-                    Text(
-                        if (!isRunning) "START RUN" else "FINISH RUN",
-                        color = Color.White,
-                        fontSize = 18.sp,
-                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
-                    )
+                        },
+                        modifier = Modifier
+                            .padding(vertical = 12.dp, horizontal = 24.dp)
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        shape = RoundedCornerShape(28.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF2D3E6F)
+                        )
+                    ) {
+                        Text(
+                            "START RUN",
+                            color = Color.White,
+                            fontSize = 18.sp,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                        )
+                    }
                 }
             }
         }
