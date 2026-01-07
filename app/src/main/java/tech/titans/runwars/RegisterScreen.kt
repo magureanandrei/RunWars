@@ -1,5 +1,6 @@
 package tech.titans.runwars
 
+import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardActions
@@ -9,6 +10,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -22,11 +24,15 @@ import tech.titans.runwars.views.SignUpViewModel
 fun RegisterScreen(navController: androidx.navigation.NavController,
                    viewModel: SignUpViewModel = viewModel()) {
 
+    val context = LocalContext.current
+    val prefs = context.getSharedPreferences("RunWarsPrefs", Context.MODE_PRIVATE)
+
     var firstName by remember { mutableStateOf("") }
     var lastName by remember { mutableStateOf("") }
     var userName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var stayLoggedIn by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
 
@@ -40,6 +46,8 @@ fun RegisterScreen(navController: androidx.navigation.NavController,
             viewModel.signUp(firstName, lastName, userName, email, password, { success, error ->
                 isLoading = false
                 if(success){
+                    // Save "stay logged in" preference
+                    prefs.edit().putBoolean("stayLoggedIn", stayLoggedIn).apply()
                     navController.navigate("home")
                 }
                 else{
@@ -53,6 +61,7 @@ fun RegisterScreen(navController: androidx.navigation.NavController,
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF2C1E3C))
+            .windowInsetsPadding(WindowInsets.systemBars)
             .padding(24.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -196,7 +205,7 @@ fun RegisterScreen(navController: androidx.navigation.NavController,
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 30.dp),
+                    .padding(bottom = 20.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = Color(0xFF8E5DFF),
                     unfocusedBorderColor = Color(0xFF8E5DFF),
@@ -210,6 +219,33 @@ fun RegisterScreen(navController: androidx.navigation.NavController,
                     disabledTextColor = Color.White.copy(alpha = 0.5f)
                 )
             )
+
+            // Stay Logged In Checkbox
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 30.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Checkbox(
+                    checked = stayLoggedIn,
+                    onCheckedChange = { stayLoggedIn = it },
+                    enabled = !isLoading,
+                    colors = CheckboxDefaults.colors(
+                        checkedColor = Color(0xFF8E5DFF),
+                        uncheckedColor = Color(0xFF8E5DFF),
+                        checkmarkColor = Color.White,
+                        disabledCheckedColor = Color(0xFF8E5DFF).copy(alpha = 0.5f),
+                        disabledUncheckedColor = Color(0xFF8E5DFF).copy(alpha = 0.5f)
+                    )
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Stay logged in",
+                    color = if (isLoading) Color.White.copy(alpha = 0.5f) else Color.White,
+                    fontSize = 14.sp
+                )
+            }
 
             // Buton Register
             Button(
