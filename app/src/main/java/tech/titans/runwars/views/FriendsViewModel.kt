@@ -63,4 +63,16 @@ class FriendsViewModel: ViewModel() {
             }
         }
     }
+
+    fun removeFriend(friendId: String) {
+        currentUserId?.let { uid ->
+            _isLoading.value = true
+            UserRepo.removeFriend(uid, friendId) { success, _ ->
+                _isLoading.value = false
+                if (success) {
+                    loadFriends() // Refresh the list to update UI
+                }
+            }
+        }
+    }
 }

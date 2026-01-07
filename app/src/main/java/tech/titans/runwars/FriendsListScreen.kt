@@ -5,7 +5,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
@@ -37,14 +40,32 @@ fun FriendsListScreen(
             .padding(16.dp)
     ) {
         // Header
-        Text(
-            text = "Friends",
-            fontSize = 32.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.White,
-            modifier = Modifier.padding(bottom = 16.dp, top = 24.dp)
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp, top = 8.dp)
+        ) {
+            IconButton(
+                onClick = { navController.popBackStack() }, // Go back to Home
+                modifier = Modifier.size(48.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = Color.White,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
 
+            Text(
+                text = "Friends",
+                fontSize = 32.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                modifier = Modifier.padding(start = 8.dp)
+            )
+        }
         // Search Bar
         OutlinedTextField(
             value = searchText,
@@ -85,7 +106,7 @@ fun FriendsListScreen(
                 items(searchResults) { user ->
                     FriendItem(user = user, isAlreadyFriend = false, onAdd = {
                         viewModel.addFriend(user)
-                    })
+                    }, onRemove = {})
                 }
             }
 
@@ -100,7 +121,7 @@ fun FriendsListScreen(
                     }
                 }
                 items(friendsList) { friend ->
-                    FriendItem(user = friend, isAlreadyFriend = true, onAdd = {})
+                    FriendItem(user = friend, isAlreadyFriend = true, onAdd = {}, onRemove = {viewModel.removeFriend(friend.userId)})
                 }
             }
         }
@@ -108,7 +129,7 @@ fun FriendsListScreen(
 }
 
 @Composable
-fun FriendItem(user: User, isAlreadyFriend: Boolean, onAdd: () -> Unit) {
+fun FriendItem(user: User, isAlreadyFriend: Boolean, onAdd: () -> Unit, onRemove: () -> Unit) {
     Card(
         colors = CardDefaults.cardColors(containerColor = Color(0xFF3D2C53)),
         modifier = Modifier.fillMaxWidth()
@@ -149,8 +170,16 @@ fun FriendItem(user: User, isAlreadyFriend: Boolean, onAdd: () -> Unit) {
                 }
             }
 
-            // Add Button (only if not already a friend)
-            if (!isAlreadyFriend) {
+            if (isAlreadyFriend) {
+                // Show Remove Button (Trash Icon)
+                IconButton(onClick = onRemove) {
+                    Icon(
+                        imageVector = Icons.Default.Delete, // Make sure to import androidx.compose.material.icons.filled.Delete
+                        contentDescription = "Remove Friend",
+                        tint = Color(0xFFFF6B6B) // Red color for destructive action
+                    )
+                }
+            } else{
                 IconButton(onClick = onAdd) {
                     Icon(
                         imageVector = Icons.Default.Add,

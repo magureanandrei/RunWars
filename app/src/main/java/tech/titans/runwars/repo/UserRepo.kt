@@ -84,9 +84,40 @@ object UserRepo {
 
                     currentUser.friendsList.add(cleanFriend)
                     addUser(currentUser) // Reuse your existing save method
+                    friendUser.friendsList.add(currentUser)
+                    addUser(friendUser)
                     onResult(true, null)
                 } else {
                     onResult(false, "User is already a friend")
+                }
+            } else {
+                onResult(false, error ?: "Current user not found")
+            }
+        }
+    }
+
+    fun removeFriend(currentUserId: String, friendIdToRemove: String, onResult: (Boolean, String?) -> Unit) {
+        getUser(currentUserId) { currentUser, error ->
+            if (currentUser != null) {
+                // Remove the friend with the matching ID
+                val wasRemoved = currentUser.friendsList.removeAll { it.userId == friendIdToRemove }
+                if (wasRemoved) {
+                    // Save the updated user back to Firebase
+                    addUser(currentUser)
+
+                    getUser(friendIdToRemove) { friend, _ ->
+                        if (friend != null) {
+                            val mutualRemoval = friend.friendsList.removeAll { it.userId == currentUserId }
+                            if (mutualRemoval) {
+                                // 5. IMPORTANT: Save the updated Friend back to the database
+                                addUser(friend)
+                            }
+                        }
+                    }
+
+                    onResult(true, null)
+                } else {
+                    onResult(false, "Friend not found in list")
                 }
             } else {
                 onResult(false, error ?: "Current user not found")
