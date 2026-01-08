@@ -46,6 +46,8 @@ import tech.titans.runwars.utils.BatteryOptimizationHelper
 import tech.titans.runwars.utils.LocationUtils.calculateCapturedArea
 import tech.titans.runwars.utils.LocationUtils.createUserMarkerBitmap
 import tech.titans.runwars.utils.LocationUtils.isClosedLoop
+import tech.titans.runwars.models.FriendTerritory
+import tech.titans.runwars.models.FriendTerritoryColors
 
 @Composable
 fun HomeScreen(navController: NavController) {
@@ -76,6 +78,10 @@ fun HomeScreen(navController: NavController) {
     // Saved territories from database
     var savedTerritories by remember { mutableStateOf<List<List<LatLng>>>(emptyList()) }
     var territoriesLoadingStatus by remember { mutableStateOf("Loading...") }
+
+    // Friend territories
+    var friendTerritories by remember { mutableStateOf<List<FriendTerritory>>(emptyList()) }
+    var friendsWithVisibleTerritories by remember { mutableStateOf<Set<String>>(emptySet()) }
 
     val cameraPositionState = rememberCameraPositionState {
         position = com.google.android.gms.maps.model.CameraPosition.fromLatLngZoom(currentLocation, 14f)
@@ -303,7 +309,36 @@ fun HomeScreen(navController: NavController) {
         }
     }
 
-    // Background location permission dialog
+    // Load friend territory visibility preferences
+    LaunchedEffect(Unit) {
+        val prefs = context.getSharedPreferences("RunWarsPrefs", Context.MODE_PRIVATE)
+        val savedSet = prefs.getStringSet("visibleFriendTerritories", emptySet()) ?: emptySet()
+        friendsWithVisibleTerritories = savedSet
+        println("📂 HomeScreen: Loaded ${savedSet.size} visible friend territories from prefs")
+    }
+
+    // Fetch friend territories when visibility preferences change
+    LaunchedEffect(friendsWithVisibleTerritories) {
+        if (friendsWithVisibleTerritories.isEmpty()) {
+            friendTerritories = emptyList()
+            println("ℹ️ HomeScreen: No friends selected to show territories")
+            return@LaunchedEffect
+        }
+
+        println("🔄 HomeScreen: Fetching friend territories for ${friendsWithVisibleTerritories.size} friends")
+
+        UserRepo.getFriendsTerritories(userId, friendsWithVisibleTerritories) { territories, error ->
+            if (error != null) {
+                println("❌ HomeScreen: Error fetching friend territories: $error")
+            } else {
+                friendTerritories = territories
+                println("✅ HomeScreen: Loaded territories for ${territories.size} friends")
+                territories.forEach { ft ->
+                    println("   👤 ${ft.friendName}: ${ft.territories.size} territories")
+                }
+            }
+        }
+    }    // Background location permission dialog
     if (showBackgroundLocationDialog && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
         AlertDialog(
             onDismissRequest = { showBackgroundLocationDialog = false },
@@ -688,6 +723,28 @@ fun HomeScreen(navController: NavController) {
                     }
                 }
 
+                // Draw friend territories
+                friendTerritories.forEach { friendTerritory ->
+                    val fillColor = Color(FriendTerritoryColors.getFillColor(friendTerritory.colorIndex))
+                    val strokeColor = Color(FriendTerritoryColors.getStrokeColor(friendTerritory.colorIndex))
+
+                    friendTerritory.territories.forEach { territoryPoints ->
+                        if (territoryPoints.size >= 3) {
+                            val closedTerritoryPath = if (territoryPoints.first() != territoryPoints.last()) {
+                                territoryPoints + territoryPoints.first()
+                            } else {
+                                territoryPoints
+                            }
+                            Polygon(
+                                points = closedTerritoryPath,
+                                fillColor = fillColor,
+                                strokeColor = strokeColor,
+                                strokeWidth = 3f
+                            )
+                        }
+                    }
+                }
+
                 // Show captured territory when run is finished AND it forms a loop
                 if (!isRunning && pathPoints.size >= 3 && isClosedLoop(pathPoints)) {
                     val closedPath = if (pathPoints.first() != pathPoints.last()) {
@@ -766,11 +823,19 @@ fun HomeScreen(navController: NavController) {
                 color = Color(0xDD1E2A47),
                 shadowElevation = 4.dp
             ) {
-                Text(
-                    text = if (savedTerritories.isNotEmpty())
+                val friendTerritoriesCount = friendTerritories.sumOf { it.territories.size }
+                val statusText = when {
+                    savedTerritories.isNotEmpty() && friendTerritoriesCount > 0 ->
+                        "🗺️ ${savedTerritories.size} yours + $friendTerritoriesCount friends (tap to view)"
+                    savedTerritories.isNotEmpty() ->
                         "🗺️ $territoriesLoadingStatus (tap to view)"
-                    else
-                        "🗺️ $territoriesLoadingStatus",
+                    friendTerritoriesCount > 0 ->
+                        "🗺️ $friendTerritoriesCount friend territories"
+                    else ->
+                        "🗺️ $territoriesLoadingStatus"
+                }
+                Text(
+                    text = statusText,
                     color = Color.White,
                     fontSize = 12.sp,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)

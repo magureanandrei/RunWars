@@ -1,5 +1,6 @@
 package tech.titans.runwars.views
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,10 +22,56 @@ class FriendsViewModel: ViewModel() {
     private val _isLoading = MutableStateFlow(false)
     val isLoading = _isLoading.asStateFlow()
 
+    // Track which friends' territories should be shown on the map
+    private val _friendsWithVisibleTerritories = MutableStateFlow<Set<String>>(emptySet())
+    val friendsWithVisibleTerritories = _friendsWithVisibleTerritories.asStateFlow()
+
     private val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
 
     init {
         loadFriends()
+    }
+
+    /**
+     * Load the visible territories preference from SharedPreferences
+     */
+    fun loadVisibleTerritoriesPreference(context: Context) {
+        val prefs = context.getSharedPreferences("RunWarsPrefs", Context.MODE_PRIVATE)
+        val savedSet = prefs.getStringSet("visibleFriendTerritories", emptySet()) ?: emptySet()
+        _friendsWithVisibleTerritories.value = savedSet
+        println("📂 FriendsViewModel: Loaded ${savedSet.size} visible friend territories from prefs")
+    }
+
+    /**
+     * Save the visible territories preference to SharedPreferences
+     */
+    private fun saveVisibleTerritoriesPreference(context: Context) {
+        val prefs = context.getSharedPreferences("RunWarsPrefs", Context.MODE_PRIVATE)
+        prefs.edit().putStringSet("visibleFriendTerritories", _friendsWithVisibleTerritories.value).apply()
+        println("💾 FriendsViewModel: Saved ${_friendsWithVisibleTerritories.value.size} visible friend territories to prefs")
+    }
+
+    /**
+     * Toggle territory visibility for a specific friend
+     */
+    fun toggleFriendTerritoryVisibility(friendId: String, context: Context) {
+        val currentSet = _friendsWithVisibleTerritories.value.toMutableSet()
+        if (friendId in currentSet) {
+            currentSet.remove(friendId)
+            println("👁️‍🗨️ FriendsViewModel: Hiding territories for friend $friendId")
+        } else {
+            currentSet.add(friendId)
+            println("👁️ FriendsViewModel: Showing territories for friend $friendId")
+        }
+        _friendsWithVisibleTerritories.value = currentSet
+        saveVisibleTerritoriesPreference(context)
+    }
+
+    /**
+     * Check if a friend's territory is visible
+     */
+    fun isFriendTerritoryVisible(friendId: String): Boolean {
+        return friendId in _friendsWithVisibleTerritories.value
     }
 
     fun onSearchQueryChanged(query: String) {

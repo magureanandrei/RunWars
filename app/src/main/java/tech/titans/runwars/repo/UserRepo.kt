@@ -2,9 +2,11 @@ package tech.titans.runwars.repo
 
 import android.util.Log
 import com.google.android.gms.tasks.Task
+import com.google.android.gms.maps.model.LatLng
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseReference
 import tech.titans.runwars.models.Coordinates
+import tech.titans.runwars.models.FriendTerritory
 import tech.titans.runwars.models.RunSession
 import tech.titans.runwars.models.User
 
@@ -216,6 +218,93 @@ object UserRepo {
                 }
             } else {
                 onResult(false, error ?: "Current user not found")
+            }
+        }
+    }
+
+    /**
+     * Fetch territories for all friends of a user.
+     * Returns a list of FriendTerritory objects, each containing the friend's info and their territories.
+     *
+     * @param userId The current user's ID
+     * @param friendIdsToShow Set of friend IDs whose territories should be shown (for toggle feature)
+     * @param onResult Callback with list of FriendTerritory objects
+     */
+    fun getFriendsTerritories(
+        userId: String,
+        friendIdsToShow: Set<String>,
+        onResult: (List<FriendTerritory>, String?) -> Unit
+    ) {
+        println("🔍 UserRepo: Fetching friends' territories for user $userId")
+        println("🔍 UserRepo: Friends to show: $friendIdsToShow")
+
+        if (friendIdsToShow.isEmpty()) {
+            println("ℹ️ UserRepo: No friends selected to show territories")
+            onResult(emptyList(), null)
+            return
+        }
+
+        // First get the user to access their friends list
+        getUser(userId) { user, error ->
+            if (user == null) {
+                println("❌ UserRepo: Could not fetch user: $error")
+                onResult(emptyList(), error)
+                return@getUser
+            }
+
+            val friendsList = user.friendsList.filter { it.userId in friendIdsToShow }
+            println("👥 UserRepo: Found ${friendsList.size} friends to fetch territories for")
+
+            if (friendsList.isEmpty()) {
+                onResult(emptyList(), null)
+                return@getUser
+            }
+
+            val friendTerritories = mutableListOf<FriendTerritory>()
+            var completedCount = 0
+            val totalFriends = friendsList.size
+
+            friendsList.forEachIndexed { colorIndex, friend ->
+                println("  🔸 Fetching territories for friend: ${friend.userName} (${friend.userId})")
+
+                getUserWithRunSessions(friend.userId) { _, runSessions, friendError ->
+                    if (friendError != null) {
+                        println("  ❌ Error fetching friend ${friend.userName}: $friendError")
+                    } else {
+                        // Convert run sessions to territory points
+                        val territories = runSessions.mapNotNull { runSession ->
+                            if (runSession.coordinatesList.size >= 3) {
+                                runSession.coordinatesList.map { coord ->
+                                    LatLng(coord.latitude, coord.longitude)
+                                }
+                            } else {
+                                null
+                            }
+                        }
+
+                        if (territories.isNotEmpty()) {
+                            synchronized(friendTerritories) {
+                                friendTerritories.add(
+                                    FriendTerritory(
+                                        friendId = friend.userId,
+                                        friendName = friend.userName,
+                                        colorIndex = colorIndex,
+                                        territories = territories
+                                    )
+                                )
+                            }
+                            println("  ✅ Friend ${friend.userName}: ${territories.size} territories loaded")
+                        } else {
+                            println("  ℹ️ Friend ${friend.userName}: No valid territories")
+                        }
+                    }
+
+                    completedCount++
+                    if (completedCount == totalFriends) {
+                        println("✅ UserRepo: Finished loading all friends' territories. Total: ${friendTerritories.size} friends with territories")
+                        onResult(friendTerritories.toList(), null)
+                    }
+                }
             }
         }
     }
