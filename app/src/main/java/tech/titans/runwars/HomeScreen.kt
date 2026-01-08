@@ -462,9 +462,9 @@ fun HomeScreen(navController: NavController) {
                                 UserService.addRunSessionToUser(distanceMeters, pathPoints, userId)
 
                                 // Immediately add the newly captured territory to the map
-                                // Use the same sampling logic as UserService (every 10th point + first and last)
+                                // Use the same sampling logic as UserService (every 2nd point + first and last)
                                 val newTerritoryPoints = pathPoints.filterIndexed { index, _ ->
-                                    index == 0 || index % 10 == 0 || index == pathPoints.size - 1
+                                    index == 0 || index % 2 == 0 || index == pathPoints.size - 1
                                 }
                                 if (newTerritoryPoints.size >= 3) {
                                     savedTerritories = savedTerritories + listOf(newTerritoryPoints)
