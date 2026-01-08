@@ -77,7 +77,6 @@ fun HomeScreen(navController: NavController) {
 
     // Saved territories from database
     var savedTerritories by remember { mutableStateOf<List<List<LatLng>>>(emptyList()) }
-    var territoriesLoadingStatus by remember { mutableStateOf("Loading...") }
 
     // Friend territories
     var friendTerritories by remember { mutableStateOf<List<FriendTerritory>>(emptyList()) }
@@ -261,18 +260,15 @@ fun HomeScreen(navController: NavController) {
     // Fetch saved territories from Firebase
     LaunchedEffect(userId) {
         println("🚀 HomeScreen: Starting territory fetch for user: $userId")
-        territoriesLoadingStatus = "Fetching..."
 
         UserRepo.getUserWithRunSessions(userId) { user, runSessions, error ->
             if (error != null) {
                 println("❌ HomeScreen: Error fetching user: $error")
-                territoriesLoadingStatus = "Error: $error"
                 return@getUserWithRunSessions
             }
 
             if (user == null) {
                 println("❌ HomeScreen: User is null")
-                territoriesLoadingStatus = "User not found"
                 return@getUserWithRunSessions
             }
 
@@ -294,7 +290,6 @@ fun HomeScreen(navController: NavController) {
             }
 
             savedTerritories = territories
-            territoriesLoadingStatus = "${territories.size} territories loaded"
             println("🗺️ HomeScreen: Displaying ${territories.size} territories on map")
 
             // If we have territories, print their locations
@@ -797,50 +792,6 @@ fun HomeScreen(navController: NavController) {
                 }
             }
 
-            // Territory status indicator (top center) - click to zoom to territories
-            Surface(
-                onClick = {
-                    if (savedTerritories.isNotEmpty()) {
-                        // Zoom to first territory
-                        val firstTerritory = savedTerritories.first()
-                        val center = firstTerritory.first()
-                        scope.launch {
-                            cameraPositionState.animate(
-                                com.google.android.gms.maps.CameraUpdateFactory.newLatLngZoom(
-                                    center,
-                                    16f
-                                ),
-                                durationMs = 1000
-                            )
-                        }
-                    }
-                },
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .windowInsetsPadding(WindowInsets.systemBars)
-                    .padding(top = 16.dp),
-                shape = RoundedCornerShape(8.dp),
-                color = Color(0xDD1E2A47),
-                shadowElevation = 4.dp
-            ) {
-                val friendTerritoriesCount = friendTerritories.sumOf { it.territories.size }
-                val statusText = when {
-                    savedTerritories.isNotEmpty() && friendTerritoriesCount > 0 ->
-                        "🗺️ ${savedTerritories.size} yours + $friendTerritoriesCount friends (tap to view)"
-                    savedTerritories.isNotEmpty() ->
-                        "🗺️ $territoriesLoadingStatus (tap to view)"
-                    friendTerritoriesCount > 0 ->
-                        "🗺️ $friendTerritoriesCount friend territories"
-                    else ->
-                        "🗺️ $territoriesLoadingStatus"
-                }
-                Text(
-                    text = statusText,
-                    color = Color.White,
-                    fontSize = 12.sp,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                )
-            }
 
             // Distance display (top left)
             if (isRunning || pathPoints.isNotEmpty()) {
