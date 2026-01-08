@@ -100,6 +100,7 @@ fun Navigation(){
         composable("login") { LoginScreen(navController) }
         composable("register") { RegisterScreen(navController) }
         composable("home") { HomeScreen(navController) }
+        composable("friends") { FriendsListScreen(navController) }
     }
 }
 

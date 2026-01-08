@@ -7,5 +7,6 @@ data class User(
     val userName: String = "",
     val email: String = "",
     val territoryList: MutableList<Territory> = mutableListOf(),
-    val runSessionList: MutableList<RunSession> = mutableListOf()
+    val runSessionList: MutableList<RunSession> = mutableListOf(),
+    val friendsList: MutableList<User> = mutableListOf()
 )

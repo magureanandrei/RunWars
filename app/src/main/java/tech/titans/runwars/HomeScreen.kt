@@ -501,11 +501,20 @@ fun HomeScreen(navController: NavController) {
                     HorizontalDivider(color = Color.White.copy(alpha = 0.2f))
 
                     // Menu items
-                    listOf("Profile", "Statistics", "Leaderboard", "Settings").forEach {
+                    listOf("Profile", "Statistics", "Leaderboard", "Settings", "Friends").forEach {
                         NavigationDrawerItem(
                             label = { Text(it, color = Color.White) },
                             selected = false,
-                            onClick = {},
+                            onClick = {
+                                scope.launch {
+                                    drawerState.close() // Close drawer first
+
+                                    if (it == "Friends") {
+                                        navController.navigate("friends")
+                                    }
+                                    // You can add other screens here later (e.g., if (item == "Profile")...)
+                                }
+                            },
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                             colors = NavigationDrawerItemDefaults.colors(
                                 unselectedContainerColor = Color.Transparent,
