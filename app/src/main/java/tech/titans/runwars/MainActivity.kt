@@ -84,7 +84,7 @@ fun Navigation(){
     val prefs = context.getSharedPreferences("RunWarsPrefs", Context.MODE_PRIVATE)
     val stayLoggedIn = prefs.getBoolean("stayLoggedIn", false)
     val currentUser = FirebaseAuth.getInstance().currentUser
-
+    
     // Determine start destination based on auth state
     val startDestination = if (currentUser != null && stayLoggedIn) {
         "home"

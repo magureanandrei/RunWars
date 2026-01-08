@@ -38,6 +38,8 @@ import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.firebase.auth.FirebaseAuth
 import com.google.maps.android.compose.*
 import kotlinx.coroutines.launch
+import tech.titans.runwars.repo.RunSessionRepo
+import tech.titans.runwars.repo.UserRepo
 import tech.titans.runwars.services.LocationTrackingService
 import tech.titans.runwars.services.UserService
 import tech.titans.runwars.utils.BatteryOptimizationHelper
@@ -70,6 +72,10 @@ fun HomeScreen(navController: NavController) {
     // Permission dialogs
     var showBatteryOptimizationDialog by remember { mutableStateOf(false) }
     var showBackgroundLocationDialog by remember { mutableStateOf(false) }
+
+    // Saved territories from database
+    var savedTerritories by remember { mutableStateOf<List<List<LatLng>>>(emptyList()) }
+    var territoriesLoadingStatus by remember { mutableStateOf("Loading...") }
 
     val cameraPositionState = rememberCameraPositionState {
         position = com.google.android.gms.maps.model.CameraPosition.fromLatLngZoom(currentLocation, 14f)
@@ -246,6 +252,57 @@ fun HomeScreen(navController: NavController) {
         userMarkerState.position = currentLocation
     }
 
+    // Fetch saved territories from Firebase
+    LaunchedEffect(userId) {
+        println("🚀 HomeScreen: Starting territory fetch for user: $userId")
+        territoriesLoadingStatus = "Fetching..."
+
+        UserRepo.getUserWithRunSessions(userId) { user, runSessions, error ->
+            if (error != null) {
+                println("❌ HomeScreen: Error fetching user: $error")
+                territoriesLoadingStatus = "Error: $error"
+                return@getUserWithRunSessions
+            }
+
+            if (user == null) {
+                println("❌ HomeScreen: User is null")
+                territoriesLoadingStatus = "User not found"
+                return@getUserWithRunSessions
+            }
+
+            println("📊 HomeScreen: Received ${runSessions.size} run sessions")
+
+            val territories = runSessions.mapNotNull { runSession ->
+                if (runSession.coordinatesList.size >= 3) {
+                    val points = runSession.coordinatesList.map { coord ->
+                        LatLng(coord.latitude, coord.longitude)
+                    }
+                    // Print first coordinate of each territory for debugging
+                    val firstPoint = points.first()
+                    println("  ✅ Territory with ${points.size} points at (${firstPoint.latitude}, ${firstPoint.longitude})")
+                    points
+                } else {
+                    println("  ⚠️ Run ${runSession.runId} has only ${runSession.coordinatesList.size} coordinates, skipping")
+                    null
+                }
+            }
+
+            savedTerritories = territories
+            territoriesLoadingStatus = "${territories.size} territories loaded"
+            println("🗺️ HomeScreen: Displaying ${territories.size} territories on map")
+
+            // If we have territories, print their locations
+            if (territories.isNotEmpty()) {
+                println("📍 Territory locations:")
+                territories.forEachIndexed { index, points ->
+                    val center = points.first()
+                    println("   Territory $index: center around (${center.latitude}, ${center.longitude})")
+                }
+                println("📍 Your current location: (${currentLocation.latitude}, ${currentLocation.longitude})")
+            }
+        }
+    }
+
     // Background location permission dialog
     if (showBackgroundLocationDialog && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
         AlertDialog(
@@ -403,6 +460,17 @@ fun HomeScreen(navController: NavController) {
                             onClick = {
                                 showResultDialog = false
                                 UserService.addRunSessionToUser(distanceMeters, pathPoints, userId)
+
+                                // Immediately add the newly captured territory to the map
+                                // Use the same sampling logic as UserService (every 10th point + first and last)
+                                val newTerritoryPoints = pathPoints.filterIndexed { index, _ ->
+                                    index == 0 || index % 10 == 0 || index == pathPoints.size - 1
+                                }
+                                if (newTerritoryPoints.size >= 3) {
+                                    savedTerritories = savedTerritories + listOf(newTerritoryPoints)
+                                    println("✅ Added new territory with ${newTerritoryPoints.size} points to map")
+                                }
+
                                 // Reset service
                                 if (serviceBound && locationService != null) {
                                     locationService!!.resetTracking()
@@ -430,6 +498,7 @@ fun HomeScreen(navController: NavController) {
                                 onClick = {
                                     showResultDialog = false
                                     UserService.addRunSessionToUser(distanceMeters, pathPoints, userId)
+                                    // Note: Non-loop runs are saved but not displayed as territories
                                     // Reset service
                                     if (serviceBound && locationService != null) {
                                         locationService!!.resetTracking()
@@ -602,6 +671,23 @@ fun HomeScreen(navController: NavController) {
                     }
                 }
 
+                // Draw saved territories from database
+                savedTerritories.forEach { territoryPoints ->
+                    if (territoryPoints.size >= 3) {
+                        val closedTerritoryPath = if (territoryPoints.first() != territoryPoints.last()) {
+                            territoryPoints + territoryPoints.first()
+                        } else {
+                            territoryPoints
+                        }
+                        Polygon(
+                            points = closedTerritoryPath,
+                            fillColor = Color(0x4000FF00), // Semi-transparent green for saved territories
+                            strokeColor = Color(0xFF00AA00),
+                            strokeWidth = 3f
+                        )
+                    }
+                }
+
                 // Show captured territory when run is finished AND it forms a loop
                 if (!isRunning && pathPoints.size >= 3 && isClosedLoop(pathPoints)) {
                     val closedPath = if (pathPoints.first() != pathPoints.last()) {
@@ -652,6 +738,43 @@ fun HomeScreen(navController: NavController) {
                         modifier = Modifier.size(28.dp)
                     )
                 }
+            }
+
+            // Territory status indicator (top center) - click to zoom to territories
+            Surface(
+                onClick = {
+                    if (savedTerritories.isNotEmpty()) {
+                        // Zoom to first territory
+                        val firstTerritory = savedTerritories.first()
+                        val center = firstTerritory.first()
+                        scope.launch {
+                            cameraPositionState.animate(
+                                com.google.android.gms.maps.CameraUpdateFactory.newLatLngZoom(
+                                    center,
+                                    16f
+                                ),
+                                durationMs = 1000
+                            )
+                        }
+                    }
+                },
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .windowInsetsPadding(WindowInsets.systemBars)
+                    .padding(top = 16.dp),
+                shape = RoundedCornerShape(8.dp),
+                color = Color(0xDD1E2A47),
+                shadowElevation = 4.dp
+            ) {
+                Text(
+                    text = if (savedTerritories.isNotEmpty())
+                        "🗺️ $territoriesLoadingStatus (tap to view)"
+                    else
+                        "🗺️ $territoriesLoadingStatus",
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                )
             }
 
             // Distance display (top left)

@@ -4,6 +4,8 @@ import android.util.Log
 import com.google.android.gms.tasks.Task
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseReference
+import tech.titans.runwars.models.Coordinates
+import tech.titans.runwars.models.RunSession
 import tech.titans.runwars.models.User
 
 object UserRepo {
@@ -37,6 +39,99 @@ object UserRepo {
             .addOnFailureListener { exception ->
                 onResult(null, exception.message)
             }
+    }
+
+    // Manual parsing to properly deserialize nested runSessionList with coordinates
+    fun getUserWithRunSessions(userId: String, onResult: (User?, List<RunSession>, String?) -> Unit) {
+        println("🔍 UserRepo: Fetching user $userId with manual parsing")
+
+        users.child(userId).get().addOnSuccessListener { snapshot ->
+            if (!snapshot.exists()) {
+                println("❌ UserRepo: User not found")
+                onResult(null, emptyList(), "User not found")
+                return@addOnSuccessListener
+            }
+
+            // Parse basic user fields
+            val firstName = snapshot.child("firstName").getValue(String::class.java) ?: ""
+            val lastName = snapshot.child("lastName").getValue(String::class.java) ?: ""
+            val userName = snapshot.child("userName").getValue(String::class.java) ?: ""
+            val email = snapshot.child("email").getValue(String::class.java) ?: ""
+
+            println("👤 UserRepo: Found user $userName")
+
+            // DEBUG: Print ALL children of user to see structure
+            println("🔸 User snapshot children:")
+            for (child in snapshot.children) {
+                println("  🔸 Key: ${child.key}, Value type: ${child.value?.javaClass?.simpleName}, Value: ${child.value.toString().take(200)}")
+            }
+
+            // Manually parse runSessionList
+            val runSessionsSnapshot = snapshot.child("runSessionList")
+            println("📋 UserRepo: runSessionList exists: ${runSessionsSnapshot.exists()}")
+            println("📋 UserRepo: runSessionList has ${runSessionsSnapshot.childrenCount} children")
+            println("📋 UserRepo: runSessionList raw value: ${runSessionsSnapshot.value.toString().take(500)}")
+
+            val runSessions = mutableListOf<RunSession>()
+
+            for (sessionSnapshot in runSessionsSnapshot.children) {
+                try {
+                    println("  🔹 Session key: ${sessionSnapshot.key}")
+                    println("  🔹 Session children: ${sessionSnapshot.children.map { it.key }}")
+
+                    val runId = sessionSnapshot.child("runId").getValue(String::class.java) ?: ""
+                    val distance = sessionSnapshot.child("distance").getValue(Double::class.java) ?: 0.0
+                    val startTime = sessionSnapshot.child("startTime").getValue(Long::class.java) ?: 0L
+                    val stopTime = sessionSnapshot.child("stopTime").getValue(Long::class.java) ?: 0L
+                    val duration = sessionSnapshot.child("duration").getValue(Long::class.java) ?: 0L
+
+                    // Parse coordinates list
+                    val coordinatesSnapshot = sessionSnapshot.child("coordinatesList")
+                    println("  🔹 coordinatesList exists: ${coordinatesSnapshot.exists()}, count: ${coordinatesSnapshot.childrenCount}")
+                    println("  🔹 coordinatesList raw: ${coordinatesSnapshot.value.toString().take(300)}")
+
+                    val coordinatesList = mutableListOf<Coordinates>()
+
+                    for (coordSnapshot in coordinatesSnapshot.children) {
+                        val lat = coordSnapshot.child("latitude").getValue(Double::class.java) ?: 0.0
+                        val lng = coordSnapshot.child("longitude").getValue(Double::class.java) ?: 0.0
+                        if (lat != 0.0 || lng != 0.0) {
+                            coordinatesList.add(Coordinates(lat, lng))
+                        }
+                    }
+
+                    println("  📍 Run $runId: ${coordinatesList.size} coordinates, distance: $distance")
+
+                    if (runId.isNotEmpty()) {
+                        runSessions.add(RunSession(
+                            runId = runId,
+                            startTime = startTime,
+                            stopTime = stopTime,
+                            distance = distance,
+                            duration = duration,
+                            coordinatesList = coordinatesList
+                        ))
+                    }
+                } catch (e: Exception) {
+                    println("  ❌ Error parsing run session: ${e.message}")
+                }
+            }
+
+            val user = User(
+                userId = userId,
+                firstName = firstName,
+                lastName = lastName,
+                userName = userName,
+                email = email
+            )
+
+            println("✅ UserRepo: Loaded ${runSessions.size} run sessions")
+            onResult(user, runSessions, null)
+
+        }.addOnFailureListener { exception ->
+            println("❌ UserRepo: Failed to fetch user: ${exception.message}")
+            onResult(null, emptyList(), exception.message)
+        }
     }
 
     fun searchUsers(query: String, onResult: (List<User>) -> Unit) {
