@@ -106,7 +106,7 @@ fun FriendsListScreen(
                 items(searchResults) { user ->
                     FriendItem(user = user, isAlreadyFriend = false, onAdd = {
                         viewModel.addFriend(user)
-                    }, onRemove = {})
+                    }, onRemove = {}, onClick = {})
                 }
             }
 
@@ -121,7 +121,9 @@ fun FriendsListScreen(
                     }
                 }
                 items(friendsList) { friend ->
-                    FriendItem(user = friend, isAlreadyFriend = true, onAdd = {}, onRemove = {viewModel.removeFriend(friend.userId)})
+                    FriendItem(user = friend, isAlreadyFriend = true, onAdd = {}, onRemove = {viewModel.removeFriend(friend.userId)},onClick = {
+                        navController.navigate("profile/${friend.userId}")
+                    })
                 }
             }
         }
@@ -129,10 +131,11 @@ fun FriendsListScreen(
 }
 
 @Composable
-fun FriendItem(user: User, isAlreadyFriend: Boolean, onAdd: () -> Unit, onRemove: () -> Unit) {
+fun FriendItem(user: User, isAlreadyFriend: Boolean, onAdd: () -> Unit, onRemove: () -> Unit, onClick: () -> Unit = {}) {
     Card(
         colors = CardDefaults.cardColors(containerColor = Color(0xFF3D2C53)),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
+        onClick = if (isAlreadyFriend) onClick else ({})
     ) {
         Row(
             modifier = Modifier
