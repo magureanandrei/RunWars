@@ -64,7 +64,7 @@ object UserService {
         var index = 1
 
         for(coord in pathPoints){
-            if(index == 1 || index%10 == 0){
+            if(index == 1 || index%2 == 0){
                 coordinatesList.add(Coordinates(coord.latitude,coord.longitude))
             }
             index++

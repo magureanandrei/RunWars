@@ -24,7 +24,7 @@ fun LoginScreen(navController: androidx.navigation.NavController, viewModel: Log
 
     val context = LocalContext.current
     val prefs = context.getSharedPreferences("RunWarsPrefs", Context.MODE_PRIVATE)
-
+    
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var stayLoggedIn by remember { mutableStateOf(prefs.getBoolean("stayLoggedIn", true)) }
