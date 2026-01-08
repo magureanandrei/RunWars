@@ -43,31 +43,31 @@ fun ProfileScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF2C1E3C))
-            .padding(16.dp)
+            .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 48.dp) // Extra bottom for OneUI 7.0
             .verticalScroll(rememberScrollState())
     ) {
-        // Header mit Zurück-Button
+        // Header
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 24.dp, top = 8.dp)
+                .padding(bottom = 16.dp, top = 8.dp)
         ) {
             IconButton(
                 onClick = { navController.popBackStack() },
-                modifier = Modifier.size(48.dp)
+                modifier = Modifier.size(40.dp)
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Zurück",
+                    contentDescription = "Back",
                     tint = Color.White,
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(28.dp)
                 )
             }
 
             Text(
                 text = if (isOwnProfile) "My Profile" else "Profile",
-                fontSize = 32.sp,
+                fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
                 modifier = Modifier.padding(start = 8.dp)
@@ -82,10 +82,10 @@ fun ProfileScreen(
                 CircularProgressIndicator(color = Color(0xFF8E5DFF))
             }
         } else if (user != null) {
-            // Profilbild Platzhalter
+            // Profile avatar - more compact
             Surface(
                 modifier = Modifier
-                    .size(120.dp)
+                    .size(80.dp)
                     .align(Alignment.CenterHorizontally),
                 shape = MaterialTheme.shapes.medium,
                 color = Color(0xFF8E5DFF)
@@ -95,38 +95,38 @@ fun ProfileScreen(
                         imageVector = Icons.Default.Person,
                         contentDescription = null,
                         tint = Color.White,
-                        modifier = Modifier.size(80.dp)
+                        modifier = Modifier.size(50.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             // Username
             Text(
                 text = user!!.userName,
-                fontSize = 28.sp,
+                fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             )
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
-            // Informationskarten
+            // Info cards - more compact spacing
             ProfileInfoCard(
                 label = "First Name",
                 value = user!!.firstName
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             ProfileInfoCard(
                 label = "Last Name",
                 value = user!!.lastName
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             ProfileInfoCard(
                 label = "Email",
@@ -134,14 +134,14 @@ fun ProfileScreen(
                 icon = Icons.Default.Email
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             ProfileInfoCard(
                 label = "Total Runs",
                 value = user!!.runSessionList.size.toString()
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             ProfileInfoCard(
                 label = "Friends",
@@ -171,7 +171,7 @@ fun ProfileInfoCard(
     ) {
         Row(
             modifier = Modifier
-                .padding(16.dp)
+                .padding(12.dp)
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -180,22 +180,21 @@ fun ProfileInfoCard(
                     imageVector = icon,
                     contentDescription = null,
                     tint = Color(0xFF8E5DFF),
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(20.dp)
                 )
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(10.dp))
             }
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = label,
                     color = Color.LightGray,
-                    fontSize = 12.sp
+                    fontSize = 11.sp
                 )
-                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = value,
                     color = Color.White,
-                    fontSize = 16.sp,
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.Medium
                 )
             }

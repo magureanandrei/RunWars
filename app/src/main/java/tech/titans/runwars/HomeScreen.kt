@@ -710,7 +710,7 @@ fun HomeScreen(navController: NavController) {
                     HorizontalDivider(color = Color.White.copy(alpha = 0.2f))
 
                     // Menu items
-                    listOf("Profile", "Statistics", "Leaderboard", "Settings", "Friends").forEach {
+                    listOf("Profile", "Run History", "Settings", "Friends").forEach {
                         NavigationDrawerItem(
                             label = { Text(it, color = Color.White) },
                             selected = false,
@@ -718,11 +718,12 @@ fun HomeScreen(navController: NavController) {
                                 scope.launch {
                                     drawerState.close() // Close drawer first
 
-                                    if (it == "Friends") {
-                                        navController.navigate("friends")
-                                    }else if (it == "Profile") {
-                                        navController.navigate("profile")}
-                                    // You can add other screens here later (e.g., if (item == "Profile")...)
+                                    when (it) {
+                                        "Profile" -> navController.navigate("profile")
+                                        "Run History" -> navController.navigate("runHistory")
+                                        "Settings" -> navController.navigate("settings")
+                                        "Friends" -> navController.navigate("friends")
+                                    }
                                 }
                             },
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
