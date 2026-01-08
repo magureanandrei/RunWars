@@ -106,6 +106,8 @@ fun Navigation(){
             val userId = backStackEntry.arguments?.getString("userId")
             ProfileScreen(navController, userId)
         }
+        composable("runHistory") { RunHistoryScreen(navController) }
+        composable("settings") { SettingsScreen(navController) }
     }
 }
 
