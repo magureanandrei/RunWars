@@ -511,7 +511,8 @@ fun HomeScreen(navController: NavController) {
 
                                     if (it == "Friends") {
                                         navController.navigate("friends")
-                                    }
+                                    }else if (it == "Profile") {
+                                        navController.navigate("profile")}
                                     // You can add other screens here later (e.g., if (item == "Profile")...)
                                 }
                             },
