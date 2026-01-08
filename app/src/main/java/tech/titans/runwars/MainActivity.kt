@@ -102,6 +102,10 @@ fun Navigation(){
         composable("home") { HomeScreen(navController) }
         composable("friends") { FriendsListScreen(navController) }
         composable("profile") { ProfileScreen(navController) }
+        composable("profile/{userId}") { backStackEntry ->
+            val userId = backStackEntry.arguments?.getString("userId")
+            ProfileScreen(navController, userId)
+        }
     }
 }
 
