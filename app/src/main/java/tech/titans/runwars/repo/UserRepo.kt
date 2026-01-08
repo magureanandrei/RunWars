@@ -127,6 +127,33 @@ object UserRepo {
                 email = email
             )
 
+            // Parse friendsList
+            val friendsListSnapshot = snapshot.child("friendsList")
+            if (friendsListSnapshot.exists()) {
+                for (friendSnapshot in friendsListSnapshot.children) {
+                    try {
+                        val friendId = friendSnapshot.child("userId").getValue(String::class.java) ?: ""
+                        val friendFirstName = friendSnapshot.child("firstName").getValue(String::class.java) ?: ""
+                        val friendLastName = friendSnapshot.child("lastName").getValue(String::class.java) ?: ""
+                        val friendUserName = friendSnapshot.child("userName").getValue(String::class.java) ?: ""
+                        val friendEmail = friendSnapshot.child("email").getValue(String::class.java) ?: ""
+
+                        if (friendId.isNotEmpty()) {
+                            user.friendsList.add(User(
+                                userId = friendId,
+                                firstName = friendFirstName,
+                                lastName = friendLastName,
+                                userName = friendUserName,
+                                email = friendEmail
+                            ))
+                        }
+                    } catch (e: Exception) {
+                        println("  ❌ Error parsing friend: ${e.message}")
+                    }
+                }
+                println("👥 UserRepo: Loaded ${user.friendsList.size} friends")
+            }
+
             println("✅ UserRepo: Loaded ${runSessions.size} run sessions")
             onResult(user, runSessions, null)
 

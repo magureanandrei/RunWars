@@ -10,6 +10,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -21,9 +22,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.google.firebase.auth.FirebaseAuth
 import tech.titans.runwars.models.FriendTerritoryColors
 import tech.titans.runwars.models.User
 import tech.titans.runwars.views.FriendsViewModel
+import tech.titans.runwars.repo.UserRepo
 
 @Composable
 fun FriendsListScreen(
@@ -37,9 +40,41 @@ fun FriendsListScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val visibleTerritories by viewModel.friendsWithVisibleTerritories.collectAsState()
 
-    // Load preferences when screen opens
+    // State for territory viewer modal
+    var showTerritoryViewerModal by remember { mutableStateOf(false) }
+    var currentUserName by remember { mutableStateOf("") }
+    val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+
+    // Load preferences and user info when screen opens
     LaunchedEffect(Unit) {
         viewModel.loadVisibleTerritoriesPreference(context)
+        // Get current user's name
+        UserRepo.getUser(currentUserId) { user, _ ->
+            if (user != null) {
+                currentUserName = user.userName
+            }
+        }
+    }
+
+    // Territory Viewer Modal
+    if (showTerritoryViewerModal) {
+        TerritoryViewerModal(
+            currentUserId = currentUserId,
+            currentUserName = currentUserName,
+            friendsList = friendsList,
+            onSelectPerson = { selectedUserId, selectedUserName ->
+                showTerritoryViewerModal = false
+                // Save selection to prefs so HomeScreen can pick it up
+                val prefs = context.getSharedPreferences("RunWarsPrefs", android.content.Context.MODE_PRIVATE)
+                prefs.edit()
+                    .putString("pendingKingdomView", selectedUserId)
+                    .putString("pendingKingdomViewName", selectedUserName)
+                    .apply()
+                // Navigate back to home
+                navController.popBackStack()
+            },
+            onDismiss = { showTerritoryViewerModal = false }
+        )
     }
 
     Column(
@@ -153,6 +188,25 @@ fun FriendsListScreen(
                 }
             }
         }
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        // View Territories button
+        Button(
+            onClick = { showTerritoryViewerModal = true },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 16.dp, bottom = 48.dp), // Extra bottom padding for OneUI 7.0 transparent nav
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8E5DFF))
+        ) {
+            Icon(
+                imageVector = Icons.Default.Place,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("View Territories", color = Color.White)
+        }
     }
 }
 
@@ -251,3 +305,179 @@ fun FriendItem(
         }
     }
 }
+
+/**
+ * Modal for selecting a person to view their territories on the map
+ */
+@Composable
+fun TerritoryViewerModal(
+    currentUserId: String,
+    currentUserName: String,
+    friendsList: List<User>,
+    onSelectPerson: (userId: String, userName: String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var searchQuery by remember { mutableStateOf("") }
+
+    // Filter friends based on search
+    val filteredFriends = remember(searchQuery, friendsList) {
+        if (searchQuery.isEmpty()) {
+            friendsList
+        } else {
+            friendsList.filter { friend ->
+                friend.userName.contains(searchQuery, ignoreCase = true) ||
+                friend.firstName.contains(searchQuery, ignoreCase = true) ||
+                friend.lastName.contains(searchQuery, ignoreCase = true)
+            }
+        }
+    }
+
+    // Check if "You" should be shown based on search
+    val showSelf = searchQuery.isEmpty() ||
+                   currentUserName.contains(searchQuery, ignoreCase = true) ||
+                   "you".contains(searchQuery, ignoreCase = true)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFF2C1E3C),
+        title = {
+            Text(
+                "View Territories",
+                color = Color.White,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 400.dp)
+            ) {
+                // Search bar
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    label = { Text("Search", color = Color.LightGray) },
+                    singleLine = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFF8E5DFF),
+                        unfocusedBorderColor = Color.Gray,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        cursorColor = Color(0xFF8E5DFF)
+                    )
+                )
+
+                // Scrollable list
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // "You" item - always first
+                    if (showSelf) {
+                        item {
+                            TerritoryListItem(
+                                userName = currentUserName,
+                                subtitle = "(You)",
+                                color = Color(0xFF00AA00), // Green for own
+                                onClick = { onSelectPerson(currentUserId, currentUserName) }
+                            )
+                        }
+                    }
+
+                    // Friends
+                    items(filteredFriends) { friend ->
+                        TerritoryListItem(
+                            userName = friend.userName,
+                            subtitle = "${friend.firstName} ${friend.lastName}",
+                            color = Color(0xFF8E5DFF), // Purple for friends
+                            onClick = { onSelectPerson(friend.userId, friend.userName) }
+                        )
+                    }
+
+                    // Empty state
+                    if (filteredFriends.isEmpty() && !showSelf) {
+                        item {
+                            Text(
+                                "No results found",
+                                color = Color.Gray,
+                                modifier = Modifier.padding(vertical = 16.dp)
+                            )
+                        }
+                    }
+
+                    if (friendsList.isEmpty() && showSelf) {
+                        item {
+                            Text(
+                                "Add friends to view their territories!",
+                                color = Color.Gray,
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close", color = Color(0xFF8E5DFF))
+            }
+        }
+    )
+}
+
+@Composable
+fun TerritoryListItem(
+    userName: String,
+    subtitle: String,
+    color: Color,
+    onClick: () -> Unit
+) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF3D2C53)),
+        modifier = Modifier.fillMaxWidth(),
+        onClick = onClick
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Color indicator
+            Surface(
+                shape = androidx.compose.foundation.shape.CircleShape,
+                color = color,
+                modifier = Modifier.size(12.dp)
+            ) {}
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            // Name info
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = userName,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+                Text(
+                    text = subtitle,
+                    color = Color.LightGray,
+                    fontSize = 12.sp
+                )
+            }
+
+            // Arrow indicator
+            Icon(
+                imageVector = Icons.Default.Place,
+                contentDescription = "View Territories",
+                tint = color,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+    }
+}
+

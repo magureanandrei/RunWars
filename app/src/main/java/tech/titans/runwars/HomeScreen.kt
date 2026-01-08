@@ -13,6 +13,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.systemBars
@@ -20,8 +21,11 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Place
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.foundation.lazy.items
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -38,7 +42,6 @@ import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.firebase.auth.FirebaseAuth
 import com.google.maps.android.compose.*
 import kotlinx.coroutines.launch
-import tech.titans.runwars.repo.RunSessionRepo
 import tech.titans.runwars.repo.UserRepo
 import tech.titans.runwars.services.LocationTrackingService
 import tech.titans.runwars.services.UserService
@@ -81,6 +84,13 @@ fun HomeScreen(navController: NavController) {
     // Friend territories
     var friendTerritories by remember { mutableStateOf<List<FriendTerritory>>(emptyList()) }
     var friendsWithVisibleTerritories by remember { mutableStateOf<Set<String>>(emptySet()) }
+
+    // Kingdom viewer modal
+    var showKingdomViewerModal by remember { mutableStateOf(false) }
+    var currentUserName by remember { mutableStateOf("") }
+    var friendsList by remember { mutableStateOf<List<tech.titans.runwars.models.User>>(emptyList()) }
+    var viewingKingdomOf by remember { mutableStateOf<String?>(null) } // userId of person whose kingdom we're viewing
+    var viewingKingdomTerritories by remember { mutableStateOf<List<List<LatLng>>>(emptyList()) }
 
     val cameraPositionState = rememberCameraPositionState {
         position = com.google.android.gms.maps.model.CameraPosition.fromLatLngZoom(currentLocation, 14f)
@@ -292,6 +302,10 @@ fun HomeScreen(navController: NavController) {
             savedTerritories = territories
             println("🗺️ HomeScreen: Displaying ${territories.size} territories on map")
 
+            // Save user info for kingdom viewer
+            currentUserName = user.userName
+            friendsList = user.friendsList
+
             // If we have territories, print their locations
             if (territories.isNotEmpty()) {
                 println("📍 Territory locations:")
@@ -310,6 +324,54 @@ fun HomeScreen(navController: NavController) {
         val savedSet = prefs.getStringSet("visibleFriendTerritories", emptySet()) ?: emptySet()
         friendsWithVisibleTerritories = savedSet
         println("📂 HomeScreen: Loaded ${savedSet.size} visible friend territories from prefs")
+
+        // Check for pending kingdom view (from FriendsListScreen)
+        val pendingKingdomUserId = prefs.getString("pendingKingdomView", null)
+        val pendingKingdomUserName = prefs.getString("pendingKingdomViewName", null)
+        if (pendingKingdomUserId != null && pendingKingdomUserName != null) {
+            // Clear the pending view
+            prefs.edit()
+                .remove("pendingKingdomView")
+                .remove("pendingKingdomViewName")
+                .apply()
+
+            // Trigger kingdom view
+            viewingKingdomOf = pendingKingdomUserId
+
+            // Fetch territories for the selected person
+            UserRepo.getUserWithRunSessions(pendingKingdomUserId) { _, runSessions, error ->
+                if (error != null) {
+                    println("❌ Error fetching kingdom for $pendingKingdomUserName: $error")
+                    return@getUserWithRunSessions
+                }
+
+                val territories = runSessions.mapNotNull { runSession ->
+                    if (runSession.coordinatesList.size >= 3) {
+                        runSession.coordinatesList.map { coord ->
+                            LatLng(coord.latitude, coord.longitude)
+                        }
+                    } else null
+                }
+
+                viewingKingdomTerritories = territories
+                println("👑 Loaded ${territories.size} territories for $pendingKingdomUserName's kingdom")
+
+                // Zoom to fit all territories
+                if (territories.isNotEmpty()) {
+                    val allPoints = territories.flatten()
+                    val boundsBuilder = com.google.android.gms.maps.model.LatLngBounds.Builder()
+                    allPoints.forEach { boundsBuilder.include(it) }
+                    val bounds = boundsBuilder.build()
+
+                    scope.launch {
+                        cameraPositionState.animate(
+                            com.google.android.gms.maps.CameraUpdateFactory.newLatLngBounds(bounds, 100),
+                            durationMs = 1000
+                        )
+                    }
+                }
+            }
+        }
     }
 
     // Fetch friend territories when visibility preferences change
@@ -390,6 +452,54 @@ fun HomeScreen(navController: NavController) {
                     Text("Skip")
                 }
             }
+        )
+    }
+
+    // Kingdom Viewer Modal
+    if (showKingdomViewerModal) {
+        KingdomViewerModal(
+            currentUserId = userId,
+            currentUserName = currentUserName,
+            friendsList = friendsList,
+            onSelectPerson = { selectedUserId, selectedUserName ->
+                showKingdomViewerModal = false
+                viewingKingdomOf = selectedUserId
+
+                // Fetch territories for the selected person
+                UserRepo.getUserWithRunSessions(selectedUserId) { _, runSessions, error ->
+                    if (error != null) {
+                        println("❌ Error fetching kingdom for $selectedUserName: $error")
+                        return@getUserWithRunSessions
+                    }
+
+                    val territories = runSessions.mapNotNull { runSession ->
+                        if (runSession.coordinatesList.size >= 3) {
+                            runSession.coordinatesList.map { coord ->
+                                LatLng(coord.latitude, coord.longitude)
+                            }
+                        } else null
+                    }
+
+                    viewingKingdomTerritories = territories
+                    println("👑 Loaded ${territories.size} territories for $selectedUserName's kingdom")
+
+                    // Zoom to fit all territories
+                    if (territories.isNotEmpty()) {
+                        val allPoints = territories.flatten()
+                        val boundsBuilder = com.google.android.gms.maps.model.LatLngBounds.Builder()
+                        allPoints.forEach { boundsBuilder.include(it) }
+                        val bounds = boundsBuilder.build()
+
+                        scope.launch {
+                            cameraPositionState.animate(
+                                com.google.android.gms.maps.CameraUpdateFactory.newLatLngBounds(bounds, 100),
+                                durationMs = 1000
+                            )
+                        }
+                    }
+                }
+            },
+            onDismiss = { showKingdomViewerModal = false }
         )
     }
 
@@ -740,6 +850,25 @@ fun HomeScreen(navController: NavController) {
                     }
                 }
 
+                // Draw viewed kingdom territories (highlighted in purple/magenta)
+                if (viewingKingdomOf != null) {
+                    viewingKingdomTerritories.forEach { territoryPoints ->
+                        if (territoryPoints.size >= 3) {
+                            val closedTerritoryPath = if (territoryPoints.first() != territoryPoints.last()) {
+                                territoryPoints + territoryPoints.first()
+                            } else {
+                                territoryPoints
+                            }
+                            Polygon(
+                                points = closedTerritoryPath,
+                                fillColor = Color(0x60FF00FF), // Highlighted magenta
+                                strokeColor = Color(0xFFCC00CC),
+                                strokeWidth = 4f
+                            )
+                        }
+                    }
+                }
+
                 // Show captured territory when run is finished AND it forms a loop
                 if (!isRunning && pathPoints.size >= 3 && isClosedLoop(pathPoints)) {
                     val closedPath = if (pathPoints.first() != pathPoints.last()) {
@@ -789,6 +918,64 @@ fun HomeScreen(navController: NavController) {
                         tint = Color.White,
                         modifier = Modifier.size(28.dp)
                     )
+                }
+            }
+
+            // Kingdom viewer button (below menu button)
+            Surface(
+                onClick = { showKingdomViewerModal = true },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .windowInsetsPadding(WindowInsets.systemBars)
+                    .padding(top = 80.dp, end = 16.dp)
+                    .size(48.dp),
+                shape = androidx.compose.foundation.shape.CircleShape,
+                color = Color(0xFF1E2A47),
+                shadowElevation = 4.dp
+            ) {
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = "View Kingdoms",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+
+            // Kingdom viewing banner (top center)
+            if (viewingKingdomOf != null) {
+                Surface(
+                    onClick = {
+                        viewingKingdomOf = null
+                        viewingKingdomTerritories = emptyList()
+                    },
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .windowInsetsPadding(WindowInsets.systemBars)
+                        .padding(top = 16.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    color = Color(0xFFCC00CC).copy(alpha = 0.9f),
+                    shadowElevation = 4.dp
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Place,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Viewing Territory · Tap to close",
+                            color = Color.White,
+                            fontSize = 14.sp,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
+                        )
+                    }
                 }
             }
 
@@ -1046,3 +1233,179 @@ fun HomeScreen(navController: NavController) {
         }
     }
 }
+
+/**
+ * Modal for selecting a person to view their entire kingdom (all territories)
+ */
+@Composable
+fun KingdomViewerModal(
+    currentUserId: String,
+    currentUserName: String,
+    friendsList: List<tech.titans.runwars.models.User>,
+    onSelectPerson: (userId: String, userName: String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var searchQuery by remember { mutableStateOf("") }
+
+    // Filter friends based on search
+    val filteredFriends = remember(searchQuery, friendsList) {
+        if (searchQuery.isEmpty()) {
+            friendsList
+        } else {
+            friendsList.filter { friend ->
+                friend.userName.contains(searchQuery, ignoreCase = true) ||
+                friend.firstName.contains(searchQuery, ignoreCase = true) ||
+                friend.lastName.contains(searchQuery, ignoreCase = true)
+            }
+        }
+    }
+
+    // Check if "You" should be shown based on search
+    val showSelf = searchQuery.isEmpty() ||
+                   currentUserName.contains(searchQuery, ignoreCase = true) ||
+                   "you".contains(searchQuery, ignoreCase = true)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFF2C1E3C),
+        title = {
+            Text(
+                "View Territories",
+                color = Color.White,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 400.dp)
+            ) {
+                // Search bar
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    label = { Text("Search", color = Color.LightGray) },
+                    singleLine = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFF8E5DFF),
+                        unfocusedBorderColor = Color.Gray,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        cursorColor = Color(0xFF8E5DFF)
+                    )
+                )
+
+                // Scrollable list
+                androidx.compose.foundation.lazy.LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // "You" item - always first
+                    if (showSelf) {
+                        item {
+                            KingdomListItem(
+                                userName = currentUserName,
+                                subtitle = "(You)",
+                                color = Color(0xFF00AA00), // Green for own
+                                onClick = { onSelectPerson(currentUserId, currentUserName) }
+                            )
+                        }
+                    }
+
+                    // Friends
+                    items(filteredFriends) { friend ->
+                        KingdomListItem(
+                            userName = friend.userName,
+                            subtitle = "${friend.firstName} ${friend.lastName}",
+                            color = Color(0xFF8E5DFF), // Purple for friends
+                            onClick = { onSelectPerson(friend.userId, friend.userName) }
+                        )
+                    }
+
+                    // Empty state
+                    if (filteredFriends.isEmpty() && !showSelf) {
+                        item {
+                            Text(
+                                "No results found",
+                                color = Color.Gray,
+                                modifier = Modifier.padding(vertical = 16.dp)
+                            )
+                        }
+                    }
+
+                    if (friendsList.isEmpty()) {
+                        item {
+                            Text(
+                                "Add friends to view their kingdoms!",
+                                color = Color.Gray,
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close", color = Color(0xFF8E5DFF))
+            }
+        }
+    )
+}
+
+@Composable
+fun KingdomListItem(
+    userName: String,
+    subtitle: String,
+    color: Color,
+    onClick: () -> Unit
+) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF3D2C53)),
+        modifier = Modifier.fillMaxWidth(),
+        onClick = onClick
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Color indicator
+            Surface(
+                shape = androidx.compose.foundation.shape.CircleShape,
+                color = color,
+                modifier = Modifier.size(12.dp)
+            ) {}
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            // Name info
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = userName,
+                    color = Color.White,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+                Text(
+                    text = subtitle,
+                    color = Color.LightGray,
+                    fontSize = 12.sp
+                )
+            }
+
+            // Arrow indicator
+            Icon(
+                imageVector = Icons.Default.Place,
+                contentDescription = "View Kingdom",
+                tint = color,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+    }
+}
+
