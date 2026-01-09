@@ -13,7 +13,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Badge
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -153,7 +162,7 @@ fun SettingsScreen(navController: NavController) {
 
                     ModernSettingsCard(
                         icon = Icons.Default.Person,
-                        iconColor = Color(0xFF5B8DEE),
+                        iconColor = Color(0xFF6C63FF),
                         title = "Last Name",
                         subtitle = user!!.lastName.ifEmpty { "Not set" },
                         onClick = { showLastNameDialog = true }
@@ -162,7 +171,7 @@ fun SettingsScreen(navController: NavController) {
                     Spacer(modifier = Modifier.height(12.dp))
 
                     ModernSettingsCard(
-                        icon = Icons.Default.AccountCircle,
+                        icon = Icons.Default.Badge,
                         iconColor = Color(0xFF00D4AA),
                         title = "Username",
                         subtitle = "@${user!!.userName}",
@@ -348,7 +357,7 @@ fun SettingsScreen(navController: NavController) {
     if (showUsernameDialog && user != null) {
         ModernEditDialog(
             title = "Update Username",
-            icon = Icons.Default.AccountCircle,
+            icon = Icons.Default.Badge,
             currentValue = user!!.userName,
             label = "Username",
             hint = "3-20 characters, letters, numbers and _",
