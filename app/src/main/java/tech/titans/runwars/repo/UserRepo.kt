@@ -86,6 +86,7 @@ object UserRepo {
                     val startTime = sessionSnapshot.child("startTime").getValue(Long::class.java) ?: 0L
                     val stopTime = sessionSnapshot.child("stopTime").getValue(Long::class.java) ?: 0L
                     val duration = sessionSnapshot.child("duration").getValue(Long::class.java) ?: 0L
+                    val capturedArea = sessionSnapshot.child("capturedArea").getValue(Double::class.java) ?: 0.0
 
                     // Parse coordinates list
                     val coordinatesSnapshot = sessionSnapshot.child("coordinatesList")
@@ -102,7 +103,7 @@ object UserRepo {
                         }
                     }
 
-                    println("  📍 Run $runId: ${coordinatesList.size} coordinates, distance: $distance")
+                    println("  📍 Run $runId: ${coordinatesList.size} coordinates, distance: $distance, area: $capturedArea")
 
                     if (runId.isNotEmpty()) {
                         runSessions.add(RunSession(
@@ -111,6 +112,7 @@ object UserRepo {
                             stopTime = stopTime,
                             distance = distance,
                             duration = duration,
+                            capturedArea = capturedArea,
                             coordinatesList = coordinatesList
                         ))
                     }

@@ -92,6 +92,13 @@ fun HomeScreen(navController: NavController) {
     var viewingKingdomOf by remember { mutableStateOf<String?>(null) } // userId of person whose kingdom we're viewing
     var viewingKingdomTerritories by remember { mutableStateOf<List<List<LatLng>>>(emptyList()) }
 
+    // Single run territory view (from RunHistoryScreen)
+    var viewingRunTerritory by remember { mutableStateOf<List<LatLng>?>(null) }
+    var viewingRunId by remember { mutableStateOf<String?>(null) }
+
+    // Run timing for duration tracking
+    var runStartTime by remember { mutableStateOf(0L) }
+
     val cameraPositionState = rememberCameraPositionState {
         position = com.google.android.gms.maps.model.CameraPosition.fromLatLngZoom(currentLocation, 14f)
     }
@@ -324,6 +331,45 @@ fun HomeScreen(navController: NavController) {
         val savedSet = prefs.getStringSet("visibleFriendTerritories", emptySet()) ?: emptySet()
         friendsWithVisibleTerritories = savedSet
         println("📂 HomeScreen: Loaded ${savedSet.size} visible friend territories from prefs")
+
+        // Check for pending run territory view (from RunHistoryScreen)
+        val pendingRunId = prefs.getString("pendingRunTerritoryView", null)
+        if (pendingRunId != null) {
+            // Clear the pending view
+            prefs.edit().remove("pendingRunTerritoryView").apply()
+
+            // Find the run in saved territories (we already loaded them)
+            UserRepo.getUserWithRunSessions(userId) { _, runSessions, error ->
+                if (error != null) {
+                    println("❌ Error fetching run territory: $error")
+                    return@getUserWithRunSessions
+                }
+
+                val targetRun = runSessions.find { it.runId == pendingRunId }
+                if (targetRun != null && targetRun.coordinatesList.size >= 3) {
+                    val territoryPoints = targetRun.coordinatesList.map { coord ->
+                        LatLng(coord.latitude, coord.longitude)
+                    }
+                    viewingRunTerritory = territoryPoints
+                    viewingRunId = pendingRunId
+                    println("🗺️ Viewing run territory: $pendingRunId with ${territoryPoints.size} points")
+
+                    // Zoom to fit the territory
+                    val boundsBuilder = com.google.android.gms.maps.model.LatLngBounds.Builder()
+                    territoryPoints.forEach { boundsBuilder.include(it) }
+                    val bounds = boundsBuilder.build()
+
+                    scope.launch {
+                        cameraPositionState.animate(
+                            com.google.android.gms.maps.CameraUpdateFactory.newLatLngBounds(bounds, 100),
+                            durationMs = 1000
+                        )
+                    }
+                } else {
+                    println("⚠️ Run $pendingRunId not found or has no territory")
+                }
+            }
+        }
 
         // Check for pending kingdom view (from FriendsListScreen)
         val pendingKingdomUserId = prefs.getString("pendingKingdomView", null)
@@ -599,7 +645,15 @@ fun HomeScreen(navController: NavController) {
                         Button(
                             onClick = {
                                 showResultDialog = false
-                                UserService.addRunSessionToUser(distanceMeters, pathPoints, userId)
+                                val runDuration = System.currentTimeMillis() - runStartTime
+                                UserService.addRunSessionToUser(
+                                    distance = distanceMeters,
+                                    pathPoints = pathPoints,
+                                    userId = userId,
+                                    startTime = runStartTime,
+                                    duration = runDuration,
+                                    capturedArea = capturedAreaMeters2 ?: 0.0
+                                )
 
                                 // Immediately add the newly captured territory to the map
                                 // Use the same sampling logic as UserService (every 2nd point + first and last)
@@ -611,10 +665,11 @@ fun HomeScreen(navController: NavController) {
                                     println("✅ Added new territory with ${newTerritoryPoints.size} points to map")
                                 }
 
-                                // Reset service
+                                // Reset service and timing
                                 if (serviceBound && locationService != null) {
                                     locationService!!.resetTracking()
                                 }
+                                runStartTime = 0L
                                 continueRun = false
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2D3E6F))
@@ -637,12 +692,21 @@ fun HomeScreen(navController: NavController) {
                             Button(
                                 onClick = {
                                     showResultDialog = false
-                                    UserService.addRunSessionToUser(distanceMeters, pathPoints, userId)
+                                    val runDuration = System.currentTimeMillis() - runStartTime
+                                    UserService.addRunSessionToUser(
+                                        distance = distanceMeters,
+                                        pathPoints = pathPoints,
+                                        userId = userId,
+                                        startTime = runStartTime,
+                                        duration = runDuration,
+                                        capturedArea = 0.0 // No territory captured (not a loop)
+                                    )
                                     // Note: Non-loop runs are saved but not displayed as territories
-                                    // Reset service
+                                    // Reset service and timing
                                     if (serviceBound && locationService != null) {
                                         locationService!!.resetTracking()
                                     }
+                                    runStartTime = 0L
                                     continueRun = false
                                 },
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2D3E6F))
@@ -870,6 +934,23 @@ fun HomeScreen(navController: NavController) {
                     }
                 }
 
+                // Draw single run territory view (from RunHistoryScreen, highlighted in cyan)
+                viewingRunTerritory?.let { territoryPoints ->
+                    if (territoryPoints.size >= 3) {
+                        val closedTerritoryPath = if (territoryPoints.first() != territoryPoints.last()) {
+                            territoryPoints + territoryPoints.first()
+                        } else {
+                            territoryPoints
+                        }
+                        Polygon(
+                            points = closedTerritoryPath,
+                            fillColor = Color(0x6000FFFF), // Highlighted cyan
+                            strokeColor = Color(0xFF00CCCC),
+                            strokeWidth = 5f
+                        )
+                    }
+                }
+
                 // Show captured territory when run is finished AND it forms a loop
                 if (!isRunning && pathPoints.size >= 3 && isClosedLoop(pathPoints)) {
                     val closedPath = if (pathPoints.first() != pathPoints.last()) {
@@ -972,6 +1053,42 @@ fun HomeScreen(navController: NavController) {
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "Viewing Territory · Tap to close",
+                            color = Color.White,
+                            fontSize = 14.sp,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
+                        )
+                    }
+                }
+            }
+
+            // Run territory viewing banner (top center) - from RunHistoryScreen
+            if (viewingRunTerritory != null) {
+                Surface(
+                    onClick = {
+                        viewingRunTerritory = null
+                        viewingRunId = null
+                    },
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .windowInsetsPadding(WindowInsets.systemBars)
+                        .padding(top = 16.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    color = Color(0xFF00CCCC).copy(alpha = 0.9f),
+                    shadowElevation = 4.dp
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Place,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Viewing Run · Tap to close",
                             color = Color.White,
                             fontSize = 14.sp,
                             fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
@@ -1187,6 +1304,7 @@ fun HomeScreen(navController: NavController) {
                             if (!continueRun) {
                                 // Starting fresh run
                                 capturedAreaMeters2 = null
+                                runStartTime = System.currentTimeMillis()
 
                                 // Start service and tracking
                                 if (serviceBound && locationService != null) {

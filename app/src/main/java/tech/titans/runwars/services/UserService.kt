@@ -62,8 +62,16 @@ object UserService {
         }
     }
 
-    fun addRunSessionToUser(distance: Double, pathPoints: List<LatLng>, userId: String){
+    fun addRunSessionToUser(
+        distance: Double,
+        pathPoints: List<LatLng>,
+        userId: String,
+        startTime: Long = System.currentTimeMillis(),
+        duration: Long = 0L,
+        capturedArea: Double = 0.0
+    ) {
         val runId = FirebaseProvider.database.getReference().push().key!!
+        val stopTime = System.currentTimeMillis()
         val coordinatesList = mutableListOf<Coordinates>()
         var index = 1
 
@@ -74,17 +82,26 @@ object UserService {
             index++
         }
         Log.i("AddRunSessionToUser", "Index: $index")
-        if(coordinatesList[coordinatesList.size -1] != Coordinates(pathPoints[index-2].latitude, pathPoints[index-2].longitude)){
+        if(coordinatesList.isNotEmpty() && coordinatesList[coordinatesList.size -1] != Coordinates(pathPoints[index-2].latitude, pathPoints[index-2].longitude)){
             coordinatesList.add(Coordinates(pathPoints[index-2].latitude, pathPoints[index-2].longitude))
         }
 
-        val runSession = RunSession(runId = runId, distance = distance, coordinatesList = coordinatesList)
+        val runSession = RunSession(
+            runId = runId,
+            startTime = startTime,
+            stopTime = stopTime,
+            distance = distance,
+            duration = duration,
+            capturedArea = capturedArea,
+            coordinatesList = coordinatesList
+        )
         RunSessionRepo.addRunSession(runSession)
 
         UserRepo.getUser(userId) { user, _ ->
             if(user != null){
                 user.runSessionList.add(runSession)
                 UserRepo.addUser(user)
+                Log.i("AddRunSessionToUser", "Run session saved: distance=${distance}m, duration=${duration}ms, area=${capturedArea}m²")
             }
         }
     }
