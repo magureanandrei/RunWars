@@ -20,6 +20,7 @@ import androidx.navigation.NavController
 import com.google.firebase.auth.FirebaseAuth
 import tech.titans.runwars.models.User
 import tech.titans.runwars.repo.UserRepo
+import java.util.Locale
 
 @Composable
 fun ProfileScreen(
@@ -32,9 +33,17 @@ fun ProfileScreen(
     var user by remember { mutableStateOf<User?>(null) }
     var isLoading by remember { mutableStateOf(true) }
 
+    // New states to show captured area totals
+    var totalCapturedAreaMeters2 by remember { mutableStateOf(0.0) }
+    var territoriesCount by remember { mutableStateOf(0) }
+
     LaunchedEffect(currentUserId) {
-        UserRepo.getUser(currentUserId) { fetchedUser, _ ->
+        // Use the manual parser to also retrieve run sessions so we can compute captured area
+        UserRepo.getUserWithRunSessions(currentUserId) { fetchedUser, runSessions, _ ->
             user = fetchedUser
+            // Sum captured area (stored in m²)
+            totalCapturedAreaMeters2 = runSessions.sumOf { it.capturedArea }
+            territoriesCount = runSessions.count { it.capturedArea > 0.0 }
             isLoading = false
         }
     }
@@ -147,6 +156,21 @@ fun ProfileScreen(
                 label = "Friends",
                 value = user!!.friendsList.size.toString()
             )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // New: show total captured area (convert m² to km²)
+            ProfileInfoCard(
+                label = "Total Captured Area",
+                value = if (totalCapturedAreaMeters2 > 0.0) {
+                    // show km² with 3 decimals and number of territories
+                    val km2 = totalCapturedAreaMeters2 / 1_000_000.0
+                    String.format(Locale.US, "%.3f km² (%d)", km2, territoriesCount)
+                } else {
+                    "0 km²"
+                }
+            )
+
         } else {
             Text(
                 text = "User not found",
