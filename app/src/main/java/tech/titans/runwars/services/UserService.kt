@@ -79,7 +79,6 @@ object UserService {
         pathPoints.forEach {
             newRunCoordinates.add(Coordinates(it.latitude, it.longitude))
         }
-        Log.i("AddRunSessionToUser", "Index: $index")
         // Ensure closure for valid polygon math
         if (newRunCoordinates.isNotEmpty() && newRunCoordinates.first() != newRunCoordinates.last()) {
             newRunCoordinates.add(newRunCoordinates.first())
