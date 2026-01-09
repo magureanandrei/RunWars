@@ -176,6 +176,27 @@ fun RunHistoryScreen(
     }
 }
 
+/**
+ * Generates a thematic title for a run based on time of day and success
+ */
+private fun getRunThematicTitle(run: RunSession): String {
+    if (run.startTime <= 0) return "Unknown Mission"
+    
+    val calendar = Calendar.getInstance().apply { timeInMillis = run.startTime }
+    val hour = calendar.get(Calendar.HOUR_OF_DAY)
+    
+    val timeOfDay = when (hour) {
+        in 5..11 -> "Morning"
+        in 12..16 -> "Afternoon"
+        in 17..21 -> "Evening"
+        else -> "Night"
+    }
+    
+    val action = if (run.hasTerritory()) "Conquest" else "Patrol"
+    
+    return "$timeOfDay $action"
+}
+
 @Composable
 fun StatsCard(
     totalDistance: String,
@@ -245,6 +266,8 @@ fun RunHistoryItem(
     } else {
         ""
     }
+    
+    val thematicTitle = getRunThematicTitle(run)
 
     Card(
         colors = CardDefaults.cardColors(containerColor = Color(0xFF3D2C53)),
@@ -279,41 +302,32 @@ fun RunHistoryItem(
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "Run #$runNumber",
+                        text = thematicTitle,
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = if (timeStr.isNotEmpty()) "$dateStr, $timeStr" else dateStr,
-                        color = Color.Gray,
-                        fontSize = 11.sp
+                        text = "Run #$runNumber",
+                        color = Color(0xFF8E5DFF),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
                     )
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
+                        text = if (timeStr.isNotEmpty()) "$dateStr, $timeStr" else dateStr,
+                        color = Color.Gray,
+                        fontSize = 11.sp
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
                         text = "%.2f km".format(run.getDistanceKm()),
                         color = Color.LightGray,
-                        fontSize = 12.sp
+                        fontSize = 11.sp
                     )
-                    if (run.duration > 0) {
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = run.getFormattedDuration(),
-                            color = Color.LightGray,
-                            fontSize = 12.sp
-                        )
-                    }
-                    if (run.hasTerritory()) {
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = "%.2f ha".format(run.getCapturedAreaHectares()),
-                            color = Color(0xFF4CAF50),
-                            fontSize = 12.sp
-                        )
-                    }
                 }
             }
 
@@ -343,16 +357,26 @@ fun RunDetailModal(
     val dateStr = if (run.startTime > 0) dateFormat.format(Date(run.startTime)) else "Unknown"
     val startTimeStr = if (run.startTime > 0) timeFormat.format(Date(run.startTime)) else "--:--"
     val endTimeStr = if (run.stopTime > 0) timeFormat.format(Date(run.stopTime)) else "--:--"
+    
+    val thematicTitle = getRunThematicTitle(run)
 
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = Color(0xFF2C1E3C),
         title = {
-            Text(
-                text = "Run #$runNumber",
-                color = Color.White,
-                fontWeight = FontWeight.Bold
-            )
+            Column {
+                Text(
+                    text = thematicTitle,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Mission #$runNumber",
+                    color = Color(0xFF8E5DFF),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
         },
         text = {
             Column(
@@ -477,4 +501,3 @@ fun DetailRow(label: String, value: String) {
         )
     }
 }
-
