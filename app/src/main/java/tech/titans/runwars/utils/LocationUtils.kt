@@ -5,8 +5,15 @@ import android.graphics.Canvas
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.SphericalUtil
 import kotlin.math.abs
+import org.locationtech.jts.geom.Coordinate as JtsCoordinate
+import org.locationtech.jts.geom.Geometry
+import org.locationtech.jts.geom.GeometryFactory
+import org.locationtech.jts.geom.Polygon
+import org.locationtech.jts.operation.union.CascadedPolygonUnion
+import tech.titans.runwars.models.Coordinates
 
 object LocationUtils {
+    private val geometryFactory = GeometryFactory()
     fun isClosedLoop(points: List<LatLng>): Boolean {
         if (points.size < 3) return false
 
@@ -161,5 +168,110 @@ object LocationUtils {
         }
 
         return bestLoop
+    }
+
+    /**
+     * Checks if two paths overlap and returns the merged path if they do.
+     * Returns NULL if they do not intersect.
+     */
+    fun mergeIfOverlapping(
+        existingPath: List<Coordinates>,
+        newPath: List<Coordinates>
+    ): List<Coordinates>? {
+        val poly1 = toJtsPolygon(existingPath) ?: return null
+        val poly2 = toJtsPolygon(newPath) ?: return null
+
+        // Check intersection
+        if (!poly1.intersects(poly2)) {
+            return null
+        }
+
+        // Calculate Union
+        val unionGeometry = poly1.union(poly2)
+
+        // Convert back to our Coordinate list
+        return geometryToCoordinates(unionGeometry)
+    }
+
+    private fun toJtsPolygon(points: List<Coordinates>): Polygon? {
+        if (points.size < 3) return null
+
+        // JTS requires the loop to be closed (first point == last point)
+        val closedPoints = if (points.first() != points.last()) {
+            points + points.first()
+        } else {
+            points
+        }
+
+        val jtsCoords = closedPoints.map {
+            JtsCoordinate(it.longitude, it.latitude) // JTS uses (x, y) -> (lng, lat)
+        }.toTypedArray()
+
+        return try {
+            geometryFactory.createPolygon(jtsCoords)
+        } catch (e: Exception) {
+            return null // Invalid polygon (e.g., self-intersecting in a weird way)
+        }
+    }
+
+    private fun geometryToCoordinates(geometry: Geometry): List<Coordinates> {
+        // Handle MultiPolygons (if merge creates islands) by taking the largest/convex hull
+        // or just simplifying. For this implementation, we take the boundary coordinates.
+        return geometry.coordinates.map {
+            Coordinates(latitude = it.y, longitude = it.x)
+        }
+    }
+
+    /**
+     * Takes a list of raw territory paths (which might overlap)
+     * and returns a clean list of non-overlapping polygons for display.
+     */
+    fun unifyTerritories(rawTerritories: List<List<LatLng>>): List<List<LatLng>> {
+        if (rawTerritories.isEmpty()) return emptyList()
+
+        val polygons = rawTerritories.mapNotNull { path ->
+            // Reuse your existing conversion logic (LatLong -> JTS Coordinate)
+            // Ensure you map LatLng(lat, lng) to JTS(x=lng, y=lat)
+            val coords = path.map {
+                JtsCoordinate(it.longitude, it.latitude)
+            }.toMutableList()
+
+            // Close the loop if needed
+            if (coords.isNotEmpty() && coords.first() != coords.last()) {
+                coords.add(coords.first())
+            }
+
+            try {
+                if (coords.size >= 4) // JTS needs at least 4 coords for a valid LinearRing (A-B-C-A)
+                    geometryFactory.createPolygon(coords.toTypedArray())
+                else null
+            } catch (e: Exception) { null }
+        }
+
+        if (polygons.isEmpty()) return emptyList()
+
+        // Efficiently union all polygons
+        val unionGeometry = CascadedPolygonUnion.union(polygons)
+
+        // Convert back to List<List<LatLng>> for Compose
+        val resultList = mutableListOf<List<LatLng>>()
+
+        fun extractPolygons(geom: Geometry) {
+            if (geom is Polygon) {
+                val path = geom.coordinates.map { LatLng(it.y, it.x) } // Map back: y=lat, x=lng
+                resultList.add(path)
+            } else if (geom is org.locationtech.jts.geom.MultiPolygon) {
+                for (i in 0 until geom.numGeometries) {
+                    extractPolygons(geom.getGeometryN(i))
+                }
+            } else if (geom is org.locationtech.jts.geom.GeometryCollection) {
+                for (i in 0 until geom.numGeometries) {
+                    extractPolygons(geom.getGeometryN(i))
+                }
+            }
+        }
+
+        extractPolygons(unionGeometry)
+        return resultList
     }
 }

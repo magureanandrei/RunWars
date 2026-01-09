@@ -53,6 +53,7 @@ import tech.titans.runwars.models.FriendTerritory
 import tech.titans.runwars.models.FriendTerritoryColors
 import tech.titans.runwars.utils.LocationUtils
 import tech.titans.runwars.utils.LocationUtils.findLargestLoop
+import tech.titans.runwars.utils.LocationUtils.unifyTerritories
 
 @Composable
 fun HomeScreen(navController: NavController) {
@@ -301,7 +302,10 @@ fun HomeScreen(navController: NavController) {
                 }
             }
 
-            savedTerritories = territories
+            val unifiedTerritories = unifyTerritories(territories)
+
+            // 3. Update state
+            savedTerritories = unifiedTerritories
             println("🗺️ HomeScreen: Displaying ${territories.size} territories on map")
 
             // Save user info for kingdom viewer

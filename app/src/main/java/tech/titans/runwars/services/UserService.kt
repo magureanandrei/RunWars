@@ -14,6 +14,7 @@ import tech.titans.runwars.models.User
 import tech.titans.runwars.repo.FirebaseProvider
 import tech.titans.runwars.repo.RunSessionRepo
 import tech.titans.runwars.repo.UserRepo
+import tech.titans.runwars.utils.LocationUtils.mergeIfOverlapping
 
 object UserService {
 
@@ -64,26 +65,68 @@ object UserService {
 
     fun addRunSessionToUser(distance: Double, pathPoints: List<LatLng>, userId: String){
         val runId = FirebaseProvider.database.getReference().push().key!!
-        val coordinatesList = mutableListOf<Coordinates>()
-        var index = 1
-
-        for(coord in pathPoints){
-            if(index == 1 || index%2 == 0){
-                coordinatesList.add(Coordinates(coord.latitude,coord.longitude))
-            }
-            index++
-        }
-        Log.i("AddRunSessionToUser", "Index: $index")
-        if(coordinatesList[coordinatesList.size -1] != Coordinates(pathPoints[index-2].latitude, pathPoints[index-2].longitude)){
-            coordinatesList.add(Coordinates(pathPoints[index-2].latitude, pathPoints[index-2].longitude))
+        // 1. Convert to Model Coordinates
+        val newRunCoordinates = mutableListOf<Coordinates>()
+        pathPoints.forEach {
+            newRunCoordinates.add(Coordinates(it.latitude, it.longitude))
         }
 
-        val runSession = RunSession(runId = runId, distance = distance, coordinatesList = coordinatesList)
-        RunSessionRepo.addRunSession(runSession)
+        // Ensure closure for valid polygon math
+        if (newRunCoordinates.isNotEmpty() && newRunCoordinates.first() != newRunCoordinates.last()) {
+            newRunCoordinates.add(newRunCoordinates.first())
+        }
 
+        // 2. Create the new session object (for history)
+        val newRunSession = RunSession(
+            runId = runId,
+            distance = distance,
+            coordinatesList = newRunCoordinates
+        )
+
+        // Save to global history repo
+        RunSessionRepo.addRunSession(newRunSession)
+
+        // 3. Process User's Personal List
         UserRepo.getUser(userId) { user, _ ->
-            if(user != null){
-                user.runSessionList.add(runSession)
+            if (user != null) {
+
+                // --- MERGE LOGIC START ---
+                var mergedIntoExisting = false
+
+                // Only attempt merge if the new run is actually a loop (territory)
+                if (newRunCoordinates.size >= 3) {
+
+                    // Iterate through existing sessions to find an overlap
+                    for (existingSession in user.runSessionList) {
+                        // Skip tiny paths or non-loops
+                        if (existingSession.coordinatesList.size < 3) continue
+
+                        // Try to merge
+                        val mergedPath = mergeIfOverlapping(
+                            existingSession.coordinatesList,
+                            newRunCoordinates
+                        )
+
+                        if (mergedPath != null) {
+                            // OVERLAP FOUND!
+                            // Update the EXISTING session with the bigger, merged territory
+                            existingSession.coordinatesList.clear()
+                            existingSession.coordinatesList.addAll(mergedPath)
+
+                            mergedIntoExisting = true
+                            Log.i("UserService", "Run merged into existing session ${existingSession.runId}")
+
+                            // Optimization: Break after first merge to avoid complex multi-merge logic for now
+                            break
+                        }
+                    }
+                }
+                // --- MERGE LOGIC END ---
+
+                // 4. Always add the new run to the list (for history/stats)
+                user.runSessionList.add(newRunSession)
+
+                // 5. Save the updated user (contains the new run AND the potentially expanded old run)
                 UserRepo.addUser(user)
             }
         }
