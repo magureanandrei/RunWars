@@ -14,6 +14,7 @@ object RunSessionRepo {
             "stopTime" to runSession.stopTime,
             "distance" to runSession.distance,
             "duration" to runSession.duration,
+            "capturedArea" to runSession.capturedArea,
             "coordinatesList" to runSession.coordinatesList,
         )
 
@@ -49,6 +50,10 @@ object RunSessionRepo {
                         // Manual parsing for more control
                         val runIdValue = snapshot.child("runId").getValue(String::class.java) ?: ""
                         val distance = snapshot.child("distance").getValue(Double::class.java) ?: 0.0
+                        val startTime = snapshot.child("startTime").getValue(Long::class.java) ?: 0L
+                        val stopTime = snapshot.child("stopTime").getValue(Long::class.java) ?: 0L
+                        val duration = snapshot.child("duration").getValue(Long::class.java) ?: 0L
+                        val capturedArea = snapshot.child("capturedArea").getValue(Double::class.java) ?: 0.0
                         val coordinatesSnapshot = snapshot.child("coordinatesList")
 
                         val coordinatesList = mutableListOf<Coordinates>()
@@ -60,7 +65,11 @@ object RunSessionRepo {
 
                         val runSession = RunSession(
                             runId = runIdValue,
+                            startTime = startTime,
+                            stopTime = stopTime,
                             distance = distance,
+                            duration = duration,
+                            capturedArea = capturedArea,
                             coordinatesList = coordinatesList
                         )
                         results.add(runSession)
