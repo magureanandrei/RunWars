@@ -403,7 +403,6 @@ fun RunDetailModal(
                     Spacer(modifier = Modifier.height(16.dp))
                     DetailSection(title = "Territory") {
                         DetailRow(label = "Area", value = "%.2f hectares".format(run.getCapturedAreaHectares()))
-                        DetailRow(label = "Points", value = "${run.coordinatesList.size}")
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
