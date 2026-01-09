@@ -25,7 +25,6 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.foundation.lazy.items
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -94,6 +93,13 @@ fun HomeScreen(navController: NavController) {
     var friendsList by remember { mutableStateOf<List<tech.titans.runwars.models.User>>(emptyList()) }
     var viewingKingdomOf by remember { mutableStateOf<String?>(null) } // userId of person whose kingdom we're viewing
     var viewingKingdomTerritories by remember { mutableStateOf<List<List<LatLng>>>(emptyList()) }
+
+    // Single run territory view (from RunHistoryScreen)
+    var viewingRunTerritory by remember { mutableStateOf<List<LatLng>?>(null) }
+    var viewingRunId by remember { mutableStateOf<String?>(null) }
+
+    // Run timing for duration tracking
+    var runStartTime by remember { mutableStateOf(0L) }
 
     val cameraPositionState = rememberCameraPositionState {
         position = com.google.android.gms.maps.model.CameraPosition.fromLatLngZoom(currentLocation, 14f)
@@ -331,10 +337,49 @@ fun HomeScreen(navController: NavController) {
         friendsWithVisibleTerritories = savedSet
         println("📂 HomeScreen: Loaded ${savedSet.size} visible friend territories from prefs")
 
+        // Check for pending run territory view (from RunHistoryScreen)
+        val pendingRunId = prefs.getString("pendingRunTerritoryView", null)
+        if (pendingRunId != null) {
+            // Clear the pending view
+            prefs.edit().remove("pendingRunTerritoryView").apply()
+
+            // Find the run in saved territories (we already loaded them)
+            UserRepo.getUserWithRunSessions(userId) { _, runSessions, error ->
+                if (error != null) {
+                    println("❌ Error fetching run territory: $error")
+                    return@getUserWithRunSessions
+                }
+
+                val targetRun = runSessions.find { it.runId == pendingRunId }
+                if (targetRun != null && targetRun.coordinatesList.size >= 3) {
+                    val territoryPoints = targetRun.coordinatesList.map { coord ->
+                        LatLng(coord.latitude, coord.longitude)
+                    }
+                    viewingRunTerritory = territoryPoints
+                    viewingRunId = pendingRunId
+                    println("🗺️ Viewing run territory: $pendingRunId with ${territoryPoints.size} points")
+
+                    // Zoom to fit the territory
+                    val boundsBuilder = com.google.android.gms.maps.model.LatLngBounds.Builder()
+                    territoryPoints.forEach { boundsBuilder.include(it) }
+                    val bounds = boundsBuilder.build()
+
+                    scope.launch {
+                        cameraPositionState.animate(
+                            com.google.android.gms.maps.CameraUpdateFactory.newLatLngBounds(bounds, 100),
+                            durationMs = 1000
+                        )
+                    }
+                } else {
+                    println("⚠️ Run $pendingRunId not found or has no territory")
+                }
+            }
+        }
+
         // Check for pending kingdom view (from FriendsListScreen)
-        val pendingKingdomUserId = prefs.getString("pendingKingdomView", null)
-        val pendingKingdomUserName = prefs.getString("pendingKingdomViewName", null)
-        if (pendingKingdomUserId != null && pendingKingdomUserName != null) {
+        val pendingKingdomViewUserId = prefs.getString("pendingKingdomView", null)
+        val pendingKingdomViewUserName = prefs.getString("pendingKingdomViewName", null)
+        if (pendingKingdomViewUserId != null && pendingKingdomViewUserName != null) {
             // Clear the pending view
             prefs.edit()
                 .remove("pendingKingdomView")
@@ -342,12 +387,12 @@ fun HomeScreen(navController: NavController) {
                 .apply()
 
             // Trigger kingdom view
-            viewingKingdomOf = pendingKingdomUserId
+            viewingKingdomOf = pendingKingdomViewUserId
 
             // Fetch territories for the selected person
-            UserRepo.getUserWithRunSessions(pendingKingdomUserId) { _, runSessions, error ->
+            UserRepo.getUserWithRunSessions(pendingKingdomViewUserId) { _, runSessions, error ->
                 if (error != null) {
-                    println("❌ Error fetching kingdom for $pendingKingdomUserName: $error")
+                    println("❌ Error fetching kingdom for $pendingKingdomViewUserName: $error")
                     return@getUserWithRunSessions
                 }
 
@@ -360,7 +405,7 @@ fun HomeScreen(navController: NavController) {
                 }
 
                 viewingKingdomTerritories = territories
-                println("👑 Loaded ${territories.size} territories for $pendingKingdomUserName's kingdom")
+                println("👑 Loaded ${territories.size} territories for $pendingKingdomViewUserName's kingdom")
 
                 // Zoom to fit all territories
                 if (territories.isNotEmpty()) {
@@ -401,7 +446,9 @@ fun HomeScreen(navController: NavController) {
                 }
             }
         }
-    }    // Background location permission dialog
+    }
+
+    // Background location permission dialog
     if (showBackgroundLocationDialog && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
         AlertDialog(
             onDismissRequest = { showBackgroundLocationDialog = false },
@@ -567,7 +614,7 @@ fun HomeScreen(navController: NavController) {
             },
             title = {
                 Text(
-                    if (isLoop) "Territory Captured!" else "Run Completed",
+                    if (isLoop && capturedAreaMeters2!! > 0) "Territory Captured!" else "Run Completed",
                     style = MaterialTheme.typography.headlineSmall
                 )
             },
@@ -599,13 +646,23 @@ fun HomeScreen(navController: NavController) {
             confirmButton = {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ){
                     if (territoryCaptured && capturedAreaMeters2!! > 0) {
+                        // Case 1: Territory actually captured
                         Button(
                             onClick = {
                                 showResultDialog = false
-                                UserService.addRunSessionToUser(distanceMeters, pathPoints, userId)
+                                val runDuration = System.currentTimeMillis() - runStartTime
+                                UserService.addRunSessionToUser(
+                                    distance = distanceMeters,
+                                    pathPoints = pathPoints,
+                                    userId = userId,
+                                    startTime = runStartTime,
+                                    duration = runDuration,
+                                    capturedArea = capturedAreaMeters2 ?: 0.0
+                                )
 
                                 val loopToSave = detectedLoopPath!!
 
@@ -619,17 +676,93 @@ fun HomeScreen(navController: NavController) {
                                     println("✅ Added new territory with ${newTerritoryPoints.size} points to map")
                                 }
 
-                                // Reset service
+                                // Reset service and timing
                                 if (serviceBound && locationService != null) {
                                     locationService!!.resetTracking()
                                 }
+                                runStartTime = 0L
                                 continueRun = false
                             },
+                            modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2D3E6F))
                         ) {
                             Text("Save Territory")
                         }
-                        TextButton(onClick = {
+
+                        // NEW: Button to save run but ignore the territory
+                        OutlinedButton(
+                            onClick = {
+                                showResultDialog = false
+                                val runDuration = System.currentTimeMillis() - runStartTime
+                                UserService.addRunSessionToUser(
+                                    distance = distanceMeters,
+                                    pathPoints = pathPoints,
+                                    userId = userId,
+                                    startTime = runStartTime,
+                                    duration = runDuration,
+                                    capturedArea = 0.0 // FORCE ZERO AREA
+                                )
+                                // Reset service and timing
+                                if (serviceBound && locationService != null) {
+                                    locationService!!.resetTracking()
+                                }
+                                runStartTime = 0L
+                                continueRun = false
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF2D3E6F))
+                        ) {
+                            Text("Save Run without Territory")
+                        }
+                    } else {
+                        // Case 2: No territory (not a loop)
+                        if(pathPoints.size >= 3) {
+                            Button(
+                                onClick = {
+                                    showResultDialog = false
+                                    val runDuration = System.currentTimeMillis() - runStartTime
+                                    UserService.addRunSessionToUser(
+                                        distance = distanceMeters,
+                                        pathPoints = pathPoints,
+                                        userId = userId,
+                                        startTime = runStartTime,
+                                        duration = runDuration,
+                                        capturedArea = 0.0
+                                    )
+                                    // Reset service and timing
+                                    if (serviceBound && locationService != null) {
+                                        locationService!!.resetTracking()
+                                    }
+                                    runStartTime = 0L
+                                    continueRun = false
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2D3E6F))
+                            ) {
+                                Text("Save the run anyway")
+                            }
+                        }
+
+                        // Continue run button (only if not a loop yet)
+                        Button(
+                            onClick = {
+                                showResultDialog = false
+                                continueRun = true
+                                // Resume tracking through service
+                                if (serviceBound && locationService != null) {
+                                    locationService!!.continueTracking(pathPoints, distanceMeters)
+                                    locationService!!.startTracking()
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF757575))
+                        ) {
+                            Text("Continue")
+                        }
+                    }
+
+                    TextButton(
+                        onClick = {
                             showResultDialog = false
                             // Reset service
                             if (serviceBound && locationService != null) {
@@ -637,58 +770,9 @@ fun HomeScreen(navController: NavController) {
                             }
                             capturedAreaMeters2 = null
                             continueRun = false
-                        }) {
-                            Text("Discard")
                         }
-                    } else {
-                        if(pathPoints.size >= 3) {
-                            Button(
-                                onClick = {
-                                    showResultDialog = false
-                                    UserService.addRunSessionToUser(distanceMeters, pathPoints, userId)
-                                    // Note: Non-loop runs are saved but not displayed as territories
-                                    // Reset service
-                                    if (serviceBound && locationService != null) {
-                                        locationService!!.resetTracking()
-                                    }
-                                    continueRun = false
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2D3E6F))
-                            ) {
-                                Text("Save the run anyway")
-                            }
-                        }
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Button(
-                                onClick = {
-                                    showResultDialog = false
-                                    continueRun = true
-                                    // Resume tracking through service
-                                    if (serviceBound && locationService != null) {
-                                        locationService!!.continueTracking(pathPoints, distanceMeters)
-                                        locationService!!.startTracking()
-                                    }
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF757575))
-                            ) {
-                                Text("Continue")
-                            }
-                            TextButton(onClick = {
-                                showResultDialog = false
-                                // Reset service
-                                if (serviceBound && locationService != null) {
-                                    locationService!!.resetTracking()
-                                }
-                                capturedAreaMeters2 = null
-                                continueRun = false
-                            }) {
-                                Text("Discard")
-                            }
-                        }
-
+                    ) {
+                        Text("Discard", color = Color.Gray)
                     }
                 }
             }
@@ -797,7 +881,7 @@ fun HomeScreen(navController: NavController) {
             GoogleMap(
                 modifier = Modifier.fillMaxSize(),
                 cameraPositionState = cameraPositionState,
-                uiSettings = MapUiSettings(zoomControlsEnabled = false)
+                uiSettings = MapUiSettings(zoomControlsEnabled = false, compassEnabled = false)
             ) {
                 // Custom user position marker
                 Marker(
@@ -875,6 +959,23 @@ fun HomeScreen(navController: NavController) {
                                 strokeWidth = 4f
                             )
                         }
+                    }
+                }
+
+                // Draw single run territory view (from RunHistoryScreen, highlighted in cyan)
+                viewingRunTerritory?.let { territoryPoints ->
+                    if (territoryPoints.size >= 3) {
+                        val closedTerritoryPath = if (territoryPoints.first() != territoryPoints.last()) {
+                            territoryPoints + territoryPoints.first()
+                        } else {
+                            territoryPoints
+                        }
+                        Polygon(
+                            points = closedTerritoryPath,
+                            fillColor = Color(0x6000FFFF), // Highlighted cyan
+                            strokeColor = Color(0xFF00CCCC),
+                            strokeWidth = 5f
+                        )
                     }
                 }
 
@@ -980,6 +1081,42 @@ fun HomeScreen(navController: NavController) {
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "Viewing Territory · Tap to close",
+                            color = Color.White,
+                            fontSize = 14.sp,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
+                        )
+                    }
+                }
+            }
+
+            // Run territory viewing banner (top center) - from RunHistoryScreen
+            if (viewingRunTerritory != null) {
+                Surface(
+                    onClick = {
+                        viewingRunTerritory = null
+                        viewingRunId = null
+                    },
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .windowInsetsPadding(WindowInsets.systemBars)
+                        .padding(top = 16.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    color = Color(0xFF00CCCC).copy(alpha = 0.9f),
+                    shadowElevation = 4.dp
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Place,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Viewing Run · Tap to close",
                             color = Color.White,
                             fontSize = 14.sp,
                             fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
@@ -1200,6 +1337,7 @@ fun HomeScreen(navController: NavController) {
                             if (!continueRun) {
                                 // Starting fresh run
                                 capturedAreaMeters2 = null
+                                runStartTime = System.currentTimeMillis()
 
                                 // Start service and tracking
                                 if (serviceBound && locationService != null) {

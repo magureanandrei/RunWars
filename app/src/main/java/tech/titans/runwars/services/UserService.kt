@@ -63,30 +63,39 @@ object UserService {
         }
     }
 
-    fun addRunSessionToUser(distance: Double, pathPoints: List<LatLng>, userId: String){
+    fun addRunSessionToUser(
+        distance: Double,
+        pathPoints: List<LatLng>,
+        userId: String,
+        startTime: Long = System.currentTimeMillis(),
+        duration: Long = 0L,
+        capturedArea: Double = 0.0
+    ) {
         val runId = FirebaseProvider.database.getReference().push().key!!
+
+        val stopTime = System.currentTimeMillis()
         // 1. Convert to Model Coordinates
         val newRunCoordinates = mutableListOf<Coordinates>()
         pathPoints.forEach {
             newRunCoordinates.add(Coordinates(it.latitude, it.longitude))
         }
-
+        Log.i("AddRunSessionToUser", "Index: $index")
         // Ensure closure for valid polygon math
         if (newRunCoordinates.isNotEmpty() && newRunCoordinates.first() != newRunCoordinates.last()) {
             newRunCoordinates.add(newRunCoordinates.first())
         }
 
-        // 2. Create the new session object (for history)
-        val newRunSession = RunSession(
+        val runSession = RunSession(
             runId = runId,
+            startTime = startTime,
+            stopTime = stopTime,
             distance = distance,
+            duration = duration,
+            capturedArea = capturedArea,
             coordinatesList = newRunCoordinates
         )
+        RunSessionRepo.addRunSession(runSession)
 
-        // Save to global history repo
-        RunSessionRepo.addRunSession(newRunSession)
-
-        // 3. Process User's Personal List
         UserRepo.getUser(userId) { user, _ ->
             if (user != null) {
 
@@ -124,10 +133,11 @@ object UserService {
                 // --- MERGE LOGIC END ---
 
                 // 4. Always add the new run to the list (for history/stats)
-                user.runSessionList.add(newRunSession)
+                user.runSessionList.add(runSession)
 
                 // 5. Save the updated user (contains the new run AND the potentially expanded old run)
                 UserRepo.addUser(user)
+                Log.i("AddRunSessionToUser", "Run session saved: distance=${distance}m, duration=${duration}ms, area=${capturedArea}m²")
             }
         }
     }
