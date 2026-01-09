@@ -51,6 +51,8 @@ import tech.titans.runwars.utils.LocationUtils.createUserMarkerBitmap
 import tech.titans.runwars.utils.LocationUtils.isClosedLoop
 import tech.titans.runwars.models.FriendTerritory
 import tech.titans.runwars.models.FriendTerritoryColors
+import tech.titans.runwars.utils.LocationUtils
+import tech.titans.runwars.utils.LocationUtils.findLargestLoop
 
 @Composable
 fun HomeScreen(navController: NavController) {
@@ -73,7 +75,7 @@ fun HomeScreen(navController: NavController) {
     var capturedAreaMeters2 by remember { mutableStateOf<Double?>(null) }
     var showResultDialog by remember { mutableStateOf(false) }
     var continueRun by remember { mutableStateOf(false) }
-
+    var detectedLoopPath by remember { mutableStateOf<List<LatLng>?>(null) }
     // Permission dialogs
     var showBatteryOptimizationDialog by remember { mutableStateOf(false) }
     var showBackgroundLocationDialog by remember { mutableStateOf(false) }
@@ -548,7 +550,7 @@ fun HomeScreen(navController: NavController) {
     // Result dialog after run
     if (showResultDialog && capturedAreaMeters2 != null) {
         val isLoop = isClosedLoop(pathPoints)
-
+        val territoryCaptured = detectedLoopPath != null && (capturedAreaMeters2 ?: 0.0) > 0
         AlertDialog(
             onDismissRequest = {
                 showResultDialog = false
@@ -570,7 +572,7 @@ fun HomeScreen(navController: NavController) {
                     Text("Distance: %.2f km".format(distanceMeters / 1000))
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    if (isLoop && capturedAreaMeters2!! > 0) {
+                    if (territoryCaptured && capturedAreaMeters2!! > 0) {
                         Text("Territory: %.2f ha".format(
                             capturedAreaMeters2!! / 10_000
                         ))
@@ -595,15 +597,17 @@ fun HomeScreen(navController: NavController) {
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ){
-                    if (isLoop && capturedAreaMeters2!! > 0) {
+                    if (territoryCaptured && capturedAreaMeters2!! > 0) {
                         Button(
                             onClick = {
                                 showResultDialog = false
                                 UserService.addRunSessionToUser(distanceMeters, pathPoints, userId)
 
+                                val loopToSave = detectedLoopPath!!
+
                                 // Immediately add the newly captured territory to the map
                                 // Use the same sampling logic as UserService (every 2nd point + first and last)
-                                val newTerritoryPoints = pathPoints.filterIndexed { index, _ ->
+                                val newTerritoryPoints = loopToSave.filterIndexed { index, _ ->
                                     index == 0 || index % 2 == 0 || index == pathPoints.size - 1
                                 }
                                 if (newTerritoryPoints.size >= 3) {
@@ -1140,10 +1144,15 @@ fun HomeScreen(navController: NavController) {
                                     locationService!!.stopTracking()
                                 }
 
+                                val loop = findLargestLoop(pathPoints)
+                                detectedLoopPath = loop
+
                                 // Calculate captured territory only if it's a closed loop
-                                capturedAreaMeters2 =
-                                    if (pathPoints.size >= 3 && isClosedLoop(pathPoints)) {
-                                        calculateCapturedArea(pathPoints)
+                                capturedAreaMeters2 = if (loop!=null){
+                                    calculateCapturedArea(loop)
+                                } else if (pathPoints.size >= 3 && isClosedLoop(pathPoints)) {
+                                    detectedLoopPath = pathPoints
+                                    calculateCapturedArea(pathPoints)
                                     } else {
                                         0.0
                                     }

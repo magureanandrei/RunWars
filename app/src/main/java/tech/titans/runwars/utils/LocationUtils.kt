@@ -120,4 +120,46 @@ object LocationUtils {
 
         return bitmap
     }
+
+    /**
+     * Scans the path for the largest closed loop.
+     * Returns the list of points forming that loop, or null if no loop is found.
+     */
+    fun findLargestLoop(points: List<LatLng>, thresholdMeters: Double = 30.0): List<LatLng>? {
+        if (points.size < 10) return null // Need enough points to form a loop
+
+        var maxArea = 0.0
+        var bestLoop: List<LatLng>? = null
+
+        // Scan for loops
+        // We look for a point 'j' that is close to an earlier point 'i'
+        for (i in 0 until points.size - 5) {
+            // Optimization: Don't check every single point against every other if list is huge.
+            // But for typical runs (<10k points), this O(N^2) is fine on modern phones.
+
+            for (j in (i + 5) until points.size) {
+                val start = points[i]
+                val end = points[j]
+
+                val distance = SphericalUtil.computeDistanceBetween(start, end)
+
+                if (distance < thresholdMeters) {
+                    // Found a closure! Extract the loop.
+                    val loopCandidate = points.subList(i, j + 1)
+
+                    // Check if this loop is valid (e.g. not just pacing back and forth)
+                    // We can check area
+                    val area = SphericalUtil.computeArea(loopCandidate)
+
+                    // Filter out tiny "glitch" loops (e.g. < 100 sqm)
+                    if (area > 100.0 && area > maxArea) {
+                        maxArea = area
+                        bestLoop = loopCandidate
+                    }
+                }
+            }
+        }
+
+        return bestLoop
+    }
 }
