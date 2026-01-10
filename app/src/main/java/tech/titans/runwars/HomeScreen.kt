@@ -655,6 +655,8 @@ fun HomeScreen(navController: NavController) {
                             onClick = {
                                 showResultDialog = false
                                 val runDuration = System.currentTimeMillis() - runStartTime
+
+                                // 1. Save to Backend (The heavy lifting)
                                 UserService.addRunSessionToUser(
                                     distance = distanceMeters,
                                     pathPoints = pathPoints,
@@ -664,19 +666,16 @@ fun HomeScreen(navController: NavController) {
                                     capturedArea = capturedAreaMeters2 ?: 0.0
                                 )
 
-                                val loopToSave = detectedLoopPath!!
+                                // 2. Optimistic UI Update
+                                // Use the detected loop directly. We don't need to manually filter points
+                                // because unifyTerritories + LocationUtils now handles cleaning automatically.
+                                val loopToSave = detectedLoopPath ?: pathPoints
 
-                                // Immediately add the newly captured territory to the map
-                                // Use the same sampling logic as UserService (every 2nd point + first and last)
-                                val newTerritoryPoints = loopToSave.filterIndexed { index, _ ->
-                                    index == 0 || index % 2 == 0 || index == pathPoints.size - 1
-                                }
-                                if (newTerritoryPoints.size >= 3) {
-                                    savedTerritories = unifyTerritories(savedTerritories + listOf(newTerritoryPoints))
-                                    println("✅ Added merged territory with ${newTerritoryPoints.size} points to map")
-                                }
+                                // Merge immediately into local state so the map updates instantly
+                                savedTerritories = unifyTerritories(savedTerritories + listOf(loopToSave))
+                                println("✅ UI Updated immediately with new territory")
 
-                                // Reset service and timing
+                                // 3. Reset Service and Timing
                                 if (serviceBound && locationService != null) {
                                     locationService!!.resetTracking()
                                 }
