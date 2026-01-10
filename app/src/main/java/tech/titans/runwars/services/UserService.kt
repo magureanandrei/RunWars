@@ -94,8 +94,10 @@ object UserService {
         // Always save to History (Safe, history is just a log)
         RunSessionRepo.addRunSession(runSession)
 
-        UserRepo.getUser(userId) { user, _ ->
+        UserRepo.getUserWithRunSessions(userId) { user, runSessions, _ ->
             if (user != null) {
+                user.runSessionList.clear()
+                user.runSessionList.addAll(runSessions)
                 var wasMerged = false
 
                 // This variable holds the final shape we will use to attack others.
@@ -138,6 +140,8 @@ object UserService {
                         // Fetch friend's full data (including their runs)
                         UserRepo.getUserWithRunSessions(friend.userId) { friendFull, friendRuns, _ ->
                             if (friendFull != null) {
+                                friendFull.runSessionList.clear()
+                                friendFull.runSessionList.addAll(friendRuns)
                                 var friendDamaged = false
 
                                 friendRuns.forEach { victimRun ->
