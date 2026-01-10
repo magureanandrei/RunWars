@@ -714,7 +714,23 @@ fun HomeScreen(navController: NavController) {
                         ) {
                             Text("Save Run without Territory")
                         }
-                    } else {
+                        Button(
+                            onClick = {
+                                showResultDialog = false
+                                continueRun = true
+                                // Resume tracking through service
+                                if (serviceBound && locationService != null) {
+                                    locationService!!.continueTracking(pathPoints, distanceMeters)
+                                    locationService!!.startTracking()
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF757575))
+                        ) {
+                            Text("Continue Running")
+                        }
+                    }
+                    else {
                         // Case 2: No territory (not a loop)
                         if(pathPoints.size >= 3) {
                             Button(
