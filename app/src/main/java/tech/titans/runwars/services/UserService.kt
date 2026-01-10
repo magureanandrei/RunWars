@@ -118,7 +118,13 @@ object UserService {
                             existingSession.coordinatesList.addAll(mergedPath)
                             try {
                                 val mergedLatLngs = mergedPath.map { LatLng(it.latitude, it.longitude) }
-                                existingSession.capturedArea = LocationUtils.calculateCapturedArea(mergedLatLngs)
+                                val newArea = LocationUtils.calculateCapturedArea(mergedLatLngs)
+                                // Firebase crashes on NaN/Infinity, so we default to 0.0 if math fails
+                                if (!newArea.isNaN() && !newArea.isInfinite()) {
+                                    existingSession.capturedArea = newArea
+                                } else {
+                                    Log.e("UserService", "Area was NaN, keeping old value")
+                                }
                             } catch (e: Exception) { Log.e("UserService", "Area calc error: ${e.message}") }
 
                             // Update our weapon to be this new giant shape

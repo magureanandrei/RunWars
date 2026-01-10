@@ -223,16 +223,44 @@ object LocationUtils {
         val poly1 = toJtsPolygon(existingPath) ?: return null
         val poly2 = toJtsPolygon(newPath) ?: return null
 
-        // Check intersection
-        if (!poly1.intersects(poly2)) {
+        try {
+            // Check intersection (Safety check)
+            if (!poly1.intersects(poly2)) {
+                return null
+            }
+
+            // Calculate Union
+            // This is where it usually crashes on "Figure 8" runs without a try-catch
+            val unionGeometry = poly1.union(poly2)
+
+            // HANDLE MULTI-POLYGONS (Islands)
+            // If the merge creates two islands (or error artifacts), keep the largest one.
+            if (unionGeometry is org.locationtech.jts.geom.MultiPolygon ||
+                unionGeometry is org.locationtech.jts.geom.GeometryCollection) {
+
+                var maxArea = 0.0
+                var largestPoly: Geometry? = null
+
+                for (i in 0 until unionGeometry.numGeometries) {
+                    val geom = unionGeometry.getGeometryN(i)
+                    // Filter out tiny artifacts (noise)
+                    if (geom.area > maxArea && geom.area > 0.0000001) {
+                        maxArea = geom.area
+                        largestPoly = geom
+                    }
+                }
+                return largestPoly?.let { geometryToCoordinates(it) }
+            }
+
+            // Convert back to our Coordinate list
+            return geometryToCoordinates(unionGeometry)
+
+        } catch (e: Exception) {
+            // If JTS crashes (TopologyException), we Log it and return NULL
+            // This prevents the App Crash and just saves the run separately instead of merging.
+            e.printStackTrace()
             return null
         }
-
-        // Calculate Union
-        val unionGeometry = poly1.union(poly2)
-
-        // Convert back to our Coordinate list
-        return geometryToCoordinates(unionGeometry)
     }
 
     private fun toJtsPolygon(points: List<Coordinates>): Geometry? {
