@@ -80,7 +80,8 @@ object UserService {
         pathPoints.forEach {
             newRunCoordinates.add(Coordinates(it.latitude, it.longitude))
         }
-        // Ensure closure for valid polygon math
+
+        // Ensure closure (Needed for valid math, but creates the "straight line" if saved separately)
         if (newRunCoordinates.isNotEmpty() && newRunCoordinates.first() != newRunCoordinates.last()) {
             newRunCoordinates.add(newRunCoordinates.first())
         }
@@ -94,60 +95,58 @@ object UserService {
             capturedArea = capturedArea,
             coordinatesList = newRunCoordinates
         )
+
+        // ALWAYS save to history (this is safe, history is just a list)
         RunSessionRepo.addRunSession(runSession)
 
         UserRepo.getUser(userId) { user, _ ->
             if (user != null) {
+                // TRACKER FLAG: Did we merge this run into an existing one?
+                var wasMerged = false
 
                 // --- MERGE LOGIC START ---
-
-                // Only attempt merge if the new run is actually a loop (territory)
                 if (newRunCoordinates.size >= 3 && capturedArea > 0) {
-
-                    // Iterate through existing sessions to find an overlap
                     for (existingSession in user.runSessionList) {
-                        // Skip tiny paths or non-loops
                         if (existingSession.coordinatesList.size < 3) continue
 
-                        // Try to merge
-                        val mergedPath = mergeIfOverlapping(
+                        val mergedPath = LocationUtils.mergeIfOverlapping(
                             existingSession.coordinatesList,
                             newRunCoordinates
                         )
 
                         if (mergedPath != null) {
-                            // OVERLAP FOUND!
-                            // Update the EXISTING session with the bigger, merged territory
+                            // Update the EXISTING session
                             existingSession.coordinatesList.clear()
-                            // Use explicit add to avoid analyzer warnings about unused return value
                             mergedPath.forEach { coord -> existingSession.coordinatesList.add(coord) }
 
-                            // Recompute the captured area from the merged path
+                            // Recalculate area
                             try {
-                                // Convert mergedPath (Coordinates) -> List<LatLng> for area calculation
                                 val mergedLatLngs = mergedPath.map { LatLng(it.latitude, it.longitude) }
                                 val newArea = LocationUtils.calculateCapturedArea(mergedLatLngs)
                                 existingSession.capturedArea = newArea
-                                Log.i("UserService", "Recalculated area after merge: ${newArea} m² for session ${existingSession.runId}")
+                                Log.i("UserService", "Recalculated area: ${newArea}")
                             } catch (e: Exception) {
-                                Log.e("UserService", "Failed to recalculate area after merge: ${e.message}")
+                                Log.e("UserService", "Failed to recalculate: ${e.message}")
                             }
 
-                            Log.i("UserService", "Run merged into existing session ${existingSession.runId}")
+                            Log.i("UserService", "Merged into ${existingSession.runId}")
 
-                            // Optimization: Break after first merge to avoid complex multi-merge logic for now
+                            // *** SET FLAG TO TRUE ***
+                            wasMerged = true
                             break
                         }
                     }
                 }
                 // --- MERGE LOGIC END ---
 
-                // 4. Always add the new run to the list (for history/stats)
-                user.runSessionList.add(runSession)
+                // *** THE FIX ***
+                // Only add the separate run entry if it wasn't merged!
+                if (!wasMerged) {
+                    user.runSessionList.add(runSession)
+                }
 
-                // 5. Save the updated user (contains the new run AND the potentially expanded old run)
                 UserRepo.addUser(user)
-                Log.i("AddRunSessionToUser", "Run session saved: distance=${distance}m, duration=${duration}ms, area=${capturedArea}m²")
+                Log.i("AddRunSessionToUser", "Saved. Was merged? $wasMerged")
             }
         }
     }
