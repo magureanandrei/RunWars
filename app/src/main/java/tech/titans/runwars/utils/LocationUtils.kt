@@ -193,7 +193,7 @@ object LocationUtils {
         return geometryToCoordinates(unionGeometry)
     }
 
-    private fun toJtsPolygon(points: List<Coordinates>): Polygon? {
+    private fun toJtsPolygon(points: List<Coordinates>): Geometry? {
         if (points.size < 3) return null
 
         // JTS requires the loop to be closed (first point == last point)
@@ -208,9 +208,18 @@ object LocationUtils {
         }.toTypedArray()
 
         return try {
-            geometryFactory.createPolygon(jtsCoords)
+            // 1. Create the raw polygon (might be invalid/self-intersecting)
+            val rawPolygon = geometryFactory.createPolygon(jtsCoords)
+
+            // 2. THE FIX: If it's invalid (like a figure-8), buffer(0) fixes it.
+            if (!rawPolygon.isValid) {
+                return rawPolygon.buffer(0.0)
+            }
+
+            rawPolygon
         } catch (e: Exception) {
-            return null // Invalid polygon (e.g., self-intersecting in a weird way)
+            // If it's so broken even JTS can't read it, return null to prevent crash
+            return null
         }
     }
 
