@@ -294,7 +294,7 @@ fun HomeScreen(navController: NavController) {
             println("📊 HomeScreen: Received ${runSessions.size} run sessions")
 
             val territories = runSessions.mapNotNull { runSession ->
-                if (runSession.coordinatesList.size >= 3) {
+                if (runSession.coordinatesList.size >= 3 && runSession.capturedArea > 0) {
                     val points = runSession.coordinatesList.map { coord ->
                         LatLng(coord.latitude, coord.longitude)
                     }

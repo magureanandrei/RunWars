@@ -102,7 +102,7 @@ object UserService {
                 // --- MERGE LOGIC START ---
 
                 // Only attempt merge if the new run is actually a loop (territory)
-                if (newRunCoordinates.size >= 3) {
+                if (newRunCoordinates.size >= 3 && capturedArea > 0) {
 
                     // Iterate through existing sessions to find an overlap
                     for (existingSession in user.runSessionList) {
