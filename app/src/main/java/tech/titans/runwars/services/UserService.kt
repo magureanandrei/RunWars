@@ -73,80 +73,134 @@ object UserService {
         capturedArea: Double = 0.0
     ) {
         val runId = FirebaseProvider.database.getReference().push().key!!
-
         val stopTime = System.currentTimeMillis()
-        // 1. Convert to Model Coordinates
-        val newRunCoordinates = mutableListOf<Coordinates>()
-        pathPoints.forEach {
-            newRunCoordinates.add(Coordinates(it.latitude, it.longitude))
-        }
 
-        // Ensure closure (Needed for valid math, but creates the "straight line" if saved separately)
+        // 1. Prepare New Run Coordinates
+        val newRunCoordinates = mutableListOf<Coordinates>()
+        pathPoints.forEach { newRunCoordinates.add(Coordinates(it.latitude, it.longitude)) }
+
+        // Ensure closure (Force the straight line if needed for polygon math)
         if (newRunCoordinates.isNotEmpty() && newRunCoordinates.first() != newRunCoordinates.last()) {
             newRunCoordinates.add(newRunCoordinates.first())
         }
 
         val runSession = RunSession(
             runId = runId,
-            startTime = startTime,
-            stopTime = stopTime,
-            distance = distance,
-            duration = duration,
-            capturedArea = capturedArea,
+            startTime = startTime, stopTime = stopTime,
+            distance = distance, duration = duration, capturedArea = capturedArea,
             coordinatesList = newRunCoordinates
         )
 
-        // ALWAYS save to history (this is safe, history is just a list)
+        // Always save to History (Safe, history is just a log)
         RunSessionRepo.addRunSession(runSession)
 
         UserRepo.getUser(userId) { user, _ ->
             if (user != null) {
-                // TRACKER FLAG: Did we merge this run into an existing one?
                 var wasMerged = false
 
-                // --- MERGE LOGIC START ---
+                // This variable holds the final shape we will use to attack others.
+                // It starts as the new run, but might grow if we merge with our own territory first.
+                var attackerShape = newRunCoordinates
+
+                // --- 1. SELF-MERGE LOGIC ---
+                // (Only if it's a valid territory)
                 if (newRunCoordinates.size >= 3 && capturedArea > 0) {
                     for (existingSession in user.runSessionList) {
                         if (existingSession.coordinatesList.size < 3) continue
 
-                        val mergedPath = LocationUtils.mergeIfOverlapping(
-                            existingSession.coordinatesList,
-                            newRunCoordinates
-                        )
+                        val mergedPath = LocationUtils.mergeIfOverlapping(existingSession.coordinatesList, newRunCoordinates)
 
                         if (mergedPath != null) {
                             // Update the EXISTING session
                             existingSession.coordinatesList.clear()
-                            mergedPath.forEach { coord -> existingSession.coordinatesList.add(coord) }
-
-                            // Recalculate area
+                            existingSession.coordinatesList.addAll(mergedPath)
                             try {
                                 val mergedLatLngs = mergedPath.map { LatLng(it.latitude, it.longitude) }
-                                val newArea = LocationUtils.calculateCapturedArea(mergedLatLngs)
-                                existingSession.capturedArea = newArea
-                                Log.i("UserService", "Recalculated area: ${newArea}")
-                            } catch (e: Exception) {
-                                Log.e("UserService", "Failed to recalculate: ${e.message}")
-                            }
+                                existingSession.capturedArea = LocationUtils.calculateCapturedArea(mergedLatLngs)
+                            } catch (e: Exception) { Log.e("UserService", "Area calc error: ${e.message}") }
 
-                            Log.i("UserService", "Merged into ${existingSession.runId}")
+                            // Update our weapon to be this new giant shape
+                            attackerShape = mergedPath.toMutableList()
 
-                            // *** SET FLAG TO TRUE ***
+                            // Mark as merged so we don't save a duplicate
                             wasMerged = true
                             break
                         }
                     }
                 }
-                // --- MERGE LOGIC END ---
 
-                // *** THE FIX ***
-                // Only add the separate run entry if it wasn't merged!
+                // --- 2. STEALING LOGIC (ATTACK FRIENDS) ---
+                // Only attack if we actually have a territory to attack with
+                if (attackerShape.size >= 3 && user.friendsList.isNotEmpty()) {
+                    Log.i("UserService", "⚔️ STARTING ATTACK PHASE against ${user.friendsList.size} friends")
+
+                    user.friendsList.forEach { friend ->
+                        // Fetch friend's full data (including their runs)
+                        UserRepo.getUserWithRunSessions(friend.userId) { friendFull, friendRuns, _ ->
+                            if (friendFull != null) {
+                                var friendDamaged = false
+
+                                friendRuns.forEach { victimRun ->
+                                    // Check if this friend's run is a valid territory
+                                    if (victimRun.coordinatesList.size >= 3) {
+
+                                        // ⚔️ THE MATH: Victim - Attacker
+                                        val remainingLand = LocationUtils.subtractPath(
+                                            victimPath = victimRun.coordinatesList,
+                                            attackerPath = attackerShape
+                                        )
+
+                                        // If the result is not null AND the size changed, we hit them!
+                                        if (remainingLand != null && remainingLand.size != victimRun.coordinatesList.size) {
+                                            // 1. CHECK FOR TOTAL DESTRUCTION (FATALITY)
+                                            if (remainingLand.isEmpty()) {
+                                                Log.i("UserService", "💀 FATALITY: ${friend.userName}'s territory destroyed!")
+                                                // Wipe the territory completely
+                                                victimRun.coordinatesList.clear()
+                                                victimRun.capturedArea = 0.0
+                                            }
+                                            // 2. NORMAL PARTIAL STEAL
+                                            else {
+                                                Log.i("UserService", "⚔️ HIT! Stealing from ${friend.userName}")
+
+                                                // Update the victim's run locally
+                                                victimRun.coordinatesList.clear()
+                                                victimRun.coordinatesList.addAll(remainingLand)
+
+                                                // Update their area stats
+                                                try {
+                                                    val newArea = LocationUtils.calculateCapturedArea(
+                                                        remainingLand.map { LatLng(it.latitude, it.longitude) }
+                                                    )
+                                                    victimRun.capturedArea = newArea
+                                                } catch (e: Exception) {
+                                                    Log.e("UserService", "Failed to calc area: ${e.message}")
+                                                }
+                                            }
+
+                                            friendDamaged = true
+                                        }
+                                    }
+                                }
+
+                                // If we changed anything, save the friend back to Firebase
+                                if (friendDamaged) {
+                                    UserRepo.addUser(friendFull)
+                                    Log.i("UserService", "⚔️ SAVED DAMAGE to ${friend.userName}")
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // --- 3. SAVE SELF ---
+                // If we merged, we DON'T add the separate run entry (Fixes Triangle Glitch)
                 if (!wasMerged) {
                     user.runSessionList.add(runSession)
                 }
 
                 UserRepo.addUser(user)
-                Log.i("AddRunSessionToUser", "Saved. Was merged? $wasMerged")
+                Log.i("UserService", "✅ Run Saved. Merged=$wasMerged")
             }
         }
     }

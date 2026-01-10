@@ -44,6 +44,48 @@ object LocationUtils {
         return abs(SphericalUtil.computeArea(closedPath))
     }
 
+    /**
+     * COOKIE CUTTER LOGIC:
+     * Subtracts the attacker's path from the victim's path.
+     * Returns the largest remaining chunk of the victim's territory.
+     * Returns NULL if the victim was completely wiped out.
+     */
+    fun subtractPath(victimPath: List<Coordinates>, attackerPath: List<Coordinates>): List<Coordinates>? {
+        // Convert to JTS Geometry
+        val victimPoly = toJtsPolygon(victimPath) ?: return null
+        val attackerPoly = toJtsPolygon(attackerPath) ?: return null
+
+        try {
+            // Perform the math: Victim - Attacker
+            val difference = victimPoly.difference(attackerPoly)
+
+            if (difference.isEmpty) return emptyList() // Victim was completely destroyed!
+
+            // If the result is split into islands (MultiPolygon), we keep the largest one
+            // to fit your current data model (which supports 1 list of coords).
+            if (difference is org.locationtech.jts.geom.MultiPolygon || difference is org.locationtech.jts.geom.GeometryCollection) {
+                var maxArea = 0.0
+                var largestPoly: Geometry? = null
+
+                for (i in 0 until difference.numGeometries) {
+                    val geom = difference.getGeometryN(i)
+                    if (geom.area > maxArea) {
+                        maxArea = geom.area
+                        largestPoly = geom
+                    }
+                }
+                return largestPoly?.let { geometryToCoordinates(it) }
+            }
+
+            // If it's a simple Polygon, just return it
+            return geometryToCoordinates(difference)
+
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return victimPath // If math fails, fail safe (don't delete their land)
+        }
+    }
+
     // Create custom marker icon for user position - running figure
     fun createUserMarkerBitmap(running: Boolean): Bitmap {
         val size = 140
