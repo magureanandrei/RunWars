@@ -150,14 +150,14 @@ fun ProfileScreen(
 
             ProfileInfoCard(
                 label = "Total Runs",
-                value = user!!.runSessionList.size.toString()
+                value = totalRuns.toString()
             )
 
             Spacer(modifier = Modifier.height(8.dp))
 
             ProfileInfoCard(
                 label = "Friends",
-                value = totalRuns.toString()
+                value = user!!.friendsList.size.toString()
             )
 
             Spacer(modifier = Modifier.height(8.dp))
