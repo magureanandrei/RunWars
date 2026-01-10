@@ -8,7 +8,7 @@ data class RunSession(
     val stopTime: Long = 0L,
     val distance: Double = 0.0,
     val duration: Long = 0L,
-    val capturedArea: Double = 0.0, // Area in m², 0 means no territory captured
+    var capturedArea: Double = 0.0, // Area in m², 0 means no territory captured (made mutable)
     val coordinatesList: MutableList<Coordinates> = mutableListOf()
 ) {
     /**

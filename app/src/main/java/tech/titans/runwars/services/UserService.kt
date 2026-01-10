@@ -14,6 +14,7 @@ import tech.titans.runwars.models.User
 import tech.titans.runwars.repo.FirebaseProvider
 import tech.titans.runwars.repo.RunSessionRepo
 import tech.titans.runwars.repo.UserRepo
+import tech.titans.runwars.utils.LocationUtils
 import tech.titans.runwars.utils.LocationUtils.mergeIfOverlapping
 
 object UserService {
@@ -99,7 +100,6 @@ object UserService {
             if (user != null) {
 
                 // --- MERGE LOGIC START ---
-                var mergedIntoExisting = false
 
                 // Only attempt merge if the new run is actually a loop (territory)
                 if (newRunCoordinates.size >= 3) {
@@ -119,9 +119,20 @@ object UserService {
                             // OVERLAP FOUND!
                             // Update the EXISTING session with the bigger, merged territory
                             existingSession.coordinatesList.clear()
-                            existingSession.coordinatesList.addAll(mergedPath)
+                            // Use explicit add to avoid analyzer warnings about unused return value
+                            mergedPath.forEach { coord -> existingSession.coordinatesList.add(coord) }
 
-                            mergedIntoExisting = true
+                            // Recompute the captured area from the merged path
+                            try {
+                                // Convert mergedPath (Coordinates) -> List<LatLng> for area calculation
+                                val mergedLatLngs = mergedPath.map { LatLng(it.latitude, it.longitude) }
+                                val newArea = LocationUtils.calculateCapturedArea(mergedLatLngs)
+                                existingSession.capturedArea = newArea
+                                Log.i("UserService", "Recalculated area after merge: ${newArea} m² for session ${existingSession.runId}")
+                            } catch (e: Exception) {
+                                Log.e("UserService", "Failed to recalculate area after merge: ${e.message}")
+                            }
+
                             Log.i("UserService", "Run merged into existing session ${existingSession.runId}")
 
                             // Optimization: Break after first merge to avoid complex multi-merge logic for now
