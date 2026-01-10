@@ -672,8 +672,8 @@ fun HomeScreen(navController: NavController) {
                                     index == 0 || index % 2 == 0 || index == pathPoints.size - 1
                                 }
                                 if (newTerritoryPoints.size >= 3) {
-                                    savedTerritories = savedTerritories + listOf(newTerritoryPoints)
-                                    println("✅ Added new territory with ${newTerritoryPoints.size} points to map")
+                                    savedTerritories = unifyTerritories(savedTerritories + listOf(newTerritoryPoints))
+                                    println("✅ Added merged territory with ${newTerritoryPoints.size} points to map")
                                 }
 
                                 // Reset service and timing
