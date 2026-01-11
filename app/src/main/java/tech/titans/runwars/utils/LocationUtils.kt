@@ -39,7 +39,7 @@ object LocationUtils {
         try {
             if (!poly1.intersects(poly2)) return null
 
-            val unionGeometry = poly1.union(poly2)
+            val unionGeometry = poly1.union(poly2).buffer(0.00001)
             return cleanAndExtractPolygon(unionGeometry)
 
         } catch (e: Exception) {

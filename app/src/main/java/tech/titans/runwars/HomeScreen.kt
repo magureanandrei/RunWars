@@ -656,10 +656,14 @@ fun HomeScreen(navController: NavController) {
                                 showResultDialog = false
                                 val runDuration = System.currentTimeMillis() - runStartTime
 
-                                // 1. Save to Backend (The heavy lifting)
+                                // --- THE FIX ---
+                                // Determine the clean shape (just the loop) BEFORE saving
+                                val finalTerritoryShape = detectedLoopPath ?: pathPoints
+
+                                // 1. Save to Backend (Send the LOOP, not the raw path)
                                 UserService.addRunSessionToUser(
                                     distance = distanceMeters,
-                                    pathPoints = pathPoints,
+                                    pathPoints = finalTerritoryShape, // <--- CHANGED FROM pathPoints
                                     userId = userId,
                                     startTime = runStartTime,
                                     duration = runDuration,
@@ -667,13 +671,9 @@ fun HomeScreen(navController: NavController) {
                                 )
 
                                 // 2. Optimistic UI Update
-                                // Use the detected loop directly. We don't need to manually filter points
-                                // because unifyTerritories + LocationUtils now handles cleaning automatically.
-                                val loopToSave = detectedLoopPath ?: pathPoints
-
-                                // Merge immediately into local state so the map updates instantly
-                                savedTerritories = unifyTerritories(savedTerritories + listOf(loopToSave))
-                                println("✅ UI Updated immediately with new territory")
+                                // Merge immediately into local state
+                                savedTerritories = unifyTerritories(savedTerritories + listOf(finalTerritoryShape))
+                                println("✅ UI Updated immediately with CLEAN loop")
 
                                 // 3. Reset Service and Timing
                                 if (serviceBound && locationService != null) {
