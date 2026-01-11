@@ -515,10 +515,10 @@ fun HomeScreen(navController: NavController) {
             currentUserName = currentUserName,
             friendsList = friendsList,
             onSelectPerson = { selectedUserId, selectedUserName ->
+                // 1. Close the modal immediately
                 showKingdomViewerModal = false
-                viewingKingdomOf = selectedUserId
 
-                // Fetch territories for the selected person
+                // 2. Fetch data FIRST
                 UserRepo.getUserWithRunSessions(selectedUserId) { _, runSessions, error ->
                     if (error != null) {
                         println("❌ Error fetching kingdom for $selectedUserName: $error")
@@ -533,22 +533,35 @@ fun HomeScreen(navController: NavController) {
                         } else null
                     }
 
-                    viewingKingdomTerritories = territories
-                    println("👑 Loaded ${territories.size} territories for $selectedUserName's kingdom")
-
-                    // Zoom to fit all territories
+                    // 3. CHECK: Only switch view if they have territories
                     if (territories.isNotEmpty()) {
+                        // Success -> Switch view and Zoom
+                        viewingKingdomOf = selectedUserId
+                        viewingKingdomTerritories = territories
+                        println("👑 Loaded ${territories.size} territories for $selectedUserName's kingdom")
+
                         val allPoints = territories.flatten()
                         val boundsBuilder = com.google.android.gms.maps.model.LatLngBounds.Builder()
                         allPoints.forEach { boundsBuilder.include(it) }
-                        val bounds = boundsBuilder.build()
 
-                        scope.launch {
-                            cameraPositionState.animate(
-                                com.google.android.gms.maps.CameraUpdateFactory.newLatLngBounds(bounds, 100),
-                                durationMs = 1000
-                            )
+                        try {
+                            val bounds = boundsBuilder.build()
+                            scope.launch {
+                                cameraPositionState.animate(
+                                    com.google.android.gms.maps.CameraUpdateFactory.newLatLngBounds(bounds, 100),
+                                    durationMs = 1000
+                                )
+                            }
+                        } catch (e: Exception) {
+                            println("Error zooming: ${e.message}")
                         }
+                    } else {
+                        // Failure -> Stay on current screen and show Toast
+                        android.widget.Toast.makeText(
+                            context,
+                            "$selectedUserName doesn't have any territories yet!",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
                     }
                 }
             },

@@ -373,10 +373,8 @@ class LocationTrackingService : Service() {
 
         val contentText = when {
             _pathPoints.value.isEmpty() -> "Starting run..."
-            _isPaused.value && territoryHa > 0 -> String.format(Locale.US, "PAUSED · %.2f km · %.2f ha", distanceKm, territoryHa)
             _isPaused.value -> String.format(Locale.US, "PAUSED · %.2f km", distanceKm)
-            territoryHa > 0 -> String.format(Locale.US, "%.2f km · %.2f ha captured", distanceKm, territoryHa)
-            else -> String.format(Locale.US, "%.2f km", distanceKm)
+            else -> String.format(Locale.US, "RUNNING · %.2f km", distanceKm)
         }
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
