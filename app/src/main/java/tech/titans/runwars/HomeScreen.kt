@@ -100,6 +100,7 @@ fun HomeScreen(navController: NavController) {
 
     // Run timing for duration tracking
     var runStartTime by remember { mutableStateOf(0L) }
+    var friendRefreshTrigger by remember { mutableStateOf(0) }
 
     val cameraPositionState = rememberCameraPositionState {
         position = com.google.android.gms.maps.model.CameraPosition.fromLatLngZoom(currentLocation, 14f)
@@ -426,7 +427,7 @@ fun HomeScreen(navController: NavController) {
     }
 
     // Fetch friend territories when visibility preferences change
-    LaunchedEffect(friendsWithVisibleTerritories) {
+    LaunchedEffect(friendsWithVisibleTerritories, friendRefreshTrigger){
         if (friendsWithVisibleTerritories.isEmpty()) {
             friendTerritories = emptyList()
             println("ℹ️ HomeScreen: No friends selected to show territories")
@@ -694,6 +695,12 @@ fun HomeScreen(navController: NavController) {
                                 }
                                 runStartTime = 0L
                                 continueRun = false
+
+                                scope.launch {
+                                    kotlinx.coroutines.delay(3000)
+                                    friendRefreshTrigger++
+                                    println("🔄 Refreshing friend territories to show stolen land")
+                                }
                             },
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2D3E6F))

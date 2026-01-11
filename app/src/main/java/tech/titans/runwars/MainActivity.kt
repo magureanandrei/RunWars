@@ -68,6 +68,7 @@ class MainActivity : ComponentActivity() {
 
         // Disable edge-to-edge to prevent transparent system bars on Android 14+
         WindowCompat.setDecorFitsSystemWindows(window, true)
+      tech.titans.runwars.utils.DataRestorer.executeRestoration()
 
         setContent {
             RunWarsTheme {
