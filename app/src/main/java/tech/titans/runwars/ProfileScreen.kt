@@ -37,10 +37,13 @@ fun ProfileScreen(
     var totalCapturedAreaMeters2 by remember { mutableStateOf(0.0) }
     var territoriesCount by remember { mutableStateOf(0) }
 
+    var totalRuns by remember { mutableStateOf(0) }
+
     LaunchedEffect(currentUserId) {
         // Use the manual parser to also retrieve run sessions so we can compute captured area
         UserRepo.getUserWithRunSessions(currentUserId) { fetchedUser, runSessions, _ ->
             user = fetchedUser
+            totalRuns = runSessions.size
             // Sum captured area (stored in m²)
             totalCapturedAreaMeters2 = runSessions.sumOf { it.capturedArea }
             territoriesCount = runSessions.count { it.capturedArea > 0.0 }
@@ -147,7 +150,7 @@ fun ProfileScreen(
 
             ProfileInfoCard(
                 label = "Total Runs",
-                value = user!!.runSessionList.size.toString()
+                value = totalRuns.toString()
             )
 
             Spacer(modifier = Modifier.height(8.dp))

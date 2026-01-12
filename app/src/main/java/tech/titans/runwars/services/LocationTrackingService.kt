@@ -85,6 +85,30 @@ class LocationTrackingService : Service() {
 
                 val rawLocation = result.lastLocation ?: return
 
+                // 1. "Null Island" Fix: Ignore 0,0 coordinates (happens during GPS init)
+                if (Math.abs(rawLocation.latitude) < 0.0001 && Math.abs(rawLocation.longitude) < 0.0001) {
+                    println("🛑 [Service] Ignoring invalid (0,0) location")
+                    return
+                }
+
+                // 2. "Teleport" Fix: Ignore massive jumps (> 150m instantly)
+                // We compare against the last VALID point we added
+                val lastValidPoint = _pathPoints.value.lastOrNull()
+                if (lastValidPoint != null) {
+                    val results = FloatArray(1)
+                    android.location.Location.distanceBetween(
+                        lastValidPoint.latitude, lastValidPoint.longitude,
+                        rawLocation.latitude, rawLocation.longitude,
+                        results
+                    )
+                    val distanceJump = results[0]
+
+                    // 150m jump in ~1 second is impossible for a runner (that's 540 km/h)
+                    if (distanceJump > 150) {
+                        println("🛑 [Service] Ignoring teleport jump: ${distanceJump}m")
+                        return
+                    }
+                }
                 println("📍 [Service] Raw GPS: ${rawLocation.latitude}, ${rawLocation.longitude}, accuracy: ${rawLocation.accuracy}m")
 
                 // Apply Kalman filtering and smoothing
@@ -349,10 +373,8 @@ class LocationTrackingService : Service() {
 
         val contentText = when {
             _pathPoints.value.isEmpty() -> "Starting run..."
-            _isPaused.value && territoryHa > 0 -> String.format(Locale.US, "PAUSED · %.2f km · %.2f ha", distanceKm, territoryHa)
             _isPaused.value -> String.format(Locale.US, "PAUSED · %.2f km", distanceKm)
-            territoryHa > 0 -> String.format(Locale.US, "%.2f km · %.2f ha captured", distanceKm, territoryHa)
-            else -> String.format(Locale.US, "%.2f km", distanceKm)
+            else -> String.format(Locale.US, "RUNNING · %.2f km", distanceKm)
         }
 
         return NotificationCompat.Builder(this, CHANNEL_ID)

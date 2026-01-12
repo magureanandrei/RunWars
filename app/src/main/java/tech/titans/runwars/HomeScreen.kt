@@ -100,6 +100,7 @@ fun HomeScreen(navController: NavController) {
 
     // Run timing for duration tracking
     var runStartTime by remember { mutableStateOf(0L) }
+    var friendRefreshTrigger by remember { mutableStateOf(0) }
 
     val cameraPositionState = rememberCameraPositionState {
         position = com.google.android.gms.maps.model.CameraPosition.fromLatLngZoom(currentLocation, 14f)
@@ -294,7 +295,7 @@ fun HomeScreen(navController: NavController) {
             println("📊 HomeScreen: Received ${runSessions.size} run sessions")
 
             val territories = runSessions.mapNotNull { runSession ->
-                if (runSession.coordinatesList.size >= 3) {
+                if (runSession.coordinatesList.size >= 3 && runSession.capturedArea > 0) {
                     val points = runSession.coordinatesList.map { coord ->
                         LatLng(coord.latitude, coord.longitude)
                     }
@@ -426,7 +427,7 @@ fun HomeScreen(navController: NavController) {
     }
 
     // Fetch friend territories when visibility preferences change
-    LaunchedEffect(friendsWithVisibleTerritories) {
+    LaunchedEffect(friendsWithVisibleTerritories, friendRefreshTrigger){
         if (friendsWithVisibleTerritories.isEmpty()) {
             friendTerritories = emptyList()
             println("ℹ️ HomeScreen: No friends selected to show territories")
@@ -515,10 +516,10 @@ fun HomeScreen(navController: NavController) {
             currentUserName = currentUserName,
             friendsList = friendsList,
             onSelectPerson = { selectedUserId, selectedUserName ->
+                // 1. Close the modal immediately
                 showKingdomViewerModal = false
-                viewingKingdomOf = selectedUserId
 
-                // Fetch territories for the selected person
+                // 2. Fetch data FIRST
                 UserRepo.getUserWithRunSessions(selectedUserId) { _, runSessions, error ->
                     if (error != null) {
                         println("❌ Error fetching kingdom for $selectedUserName: $error")
@@ -533,22 +534,35 @@ fun HomeScreen(navController: NavController) {
                         } else null
                     }
 
-                    viewingKingdomTerritories = territories
-                    println("👑 Loaded ${territories.size} territories for $selectedUserName's kingdom")
-
-                    // Zoom to fit all territories
+                    // 3. CHECK: Only switch view if they have territories
                     if (territories.isNotEmpty()) {
+                        // Success -> Switch view and Zoom
+                        viewingKingdomOf = selectedUserId
+                        viewingKingdomTerritories = territories
+                        println("👑 Loaded ${territories.size} territories for $selectedUserName's kingdom")
+
                         val allPoints = territories.flatten()
                         val boundsBuilder = com.google.android.gms.maps.model.LatLngBounds.Builder()
                         allPoints.forEach { boundsBuilder.include(it) }
-                        val bounds = boundsBuilder.build()
 
-                        scope.launch {
-                            cameraPositionState.animate(
-                                com.google.android.gms.maps.CameraUpdateFactory.newLatLngBounds(bounds, 100),
-                                durationMs = 1000
-                            )
+                        try {
+                            val bounds = boundsBuilder.build()
+                            scope.launch {
+                                cameraPositionState.animate(
+                                    com.google.android.gms.maps.CameraUpdateFactory.newLatLngBounds(bounds, 100),
+                                    durationMs = 1000
+                                )
+                            }
+                        } catch (e: Exception) {
+                            println("Error zooming: ${e.message}")
                         }
+                    } else {
+                        // Failure -> Stay on current screen and show Toast
+                        android.widget.Toast.makeText(
+                            context,
+                            "$selectedUserName doesn't have any territories yet!",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
                     }
                 }
             },
@@ -655,33 +669,38 @@ fun HomeScreen(navController: NavController) {
                             onClick = {
                                 showResultDialog = false
                                 val runDuration = System.currentTimeMillis() - runStartTime
+
+                                // --- THE FIX ---
+                                // Determine the clean shape (just the loop) BEFORE saving
+                                val finalTerritoryShape = detectedLoopPath ?: pathPoints
+
+                                // 1. Save to Backend (Send the LOOP, not the raw path)
                                 UserService.addRunSessionToUser(
                                     distance = distanceMeters,
-                                    pathPoints = pathPoints,
+                                    pathPoints = finalTerritoryShape, // <--- CHANGED FROM pathPoints
                                     userId = userId,
                                     startTime = runStartTime,
                                     duration = runDuration,
                                     capturedArea = capturedAreaMeters2 ?: 0.0
                                 )
 
-                                val loopToSave = detectedLoopPath!!
+                                // 2. Optimistic UI Update
+                                // Merge immediately into local state
+                                savedTerritories = unifyTerritories(savedTerritories + listOf(finalTerritoryShape))
+                                println("✅ UI Updated immediately with CLEAN loop")
 
-                                // Immediately add the newly captured territory to the map
-                                // Use the same sampling logic as UserService (every 2nd point + first and last)
-                                val newTerritoryPoints = loopToSave.filterIndexed { index, _ ->
-                                    index == 0 || index % 2 == 0 || index == pathPoints.size - 1
-                                }
-                                if (newTerritoryPoints.size >= 3) {
-                                    savedTerritories = savedTerritories + listOf(newTerritoryPoints)
-                                    println("✅ Added new territory with ${newTerritoryPoints.size} points to map")
-                                }
-
-                                // Reset service and timing
+                                // 3. Reset Service and Timing
                                 if (serviceBound && locationService != null) {
                                     locationService!!.resetTracking()
                                 }
                                 runStartTime = 0L
                                 continueRun = false
+
+                                scope.launch {
+                                    kotlinx.coroutines.delay(3000)
+                                    friendRefreshTrigger++
+                                    println("🔄 Refreshing friend territories to show stolen land")
+                                }
                             },
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2D3E6F))
@@ -714,7 +733,23 @@ fun HomeScreen(navController: NavController) {
                         ) {
                             Text("Save Run without Territory")
                         }
-                    } else {
+                        Button(
+                            onClick = {
+                                showResultDialog = false
+                                continueRun = true
+                                // Resume tracking through service
+                                if (serviceBound && locationService != null) {
+                                    locationService!!.continueTracking(pathPoints, distanceMeters)
+                                    locationService!!.startTracking()
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF757575))
+                        ) {
+                            Text("Continue Running")
+                        }
+                    }
+                    else {
                         // Case 2: No territory (not a loop)
                         if(pathPoints.size >= 3) {
                             Button(

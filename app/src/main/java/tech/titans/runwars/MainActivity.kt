@@ -68,6 +68,74 @@ class MainActivity : ComponentActivity() {
 
         // Disable edge-to-edge to prevent transparent system bars on Android 14+
         WindowCompat.setDecorFitsSystemWindows(window, true)
+      //tech.titans.runwars.utils.DataRestorer.executeRestoration()
+
+//      tech.titans.runwars.utils.TerritoryGenerator.createBot(
+//          centerLat = 46.7713,
+//          centerLng = 23.5899,
+//          radiusMeters = 300.0,
+//          botName = "Cluj Warlord"
+//      )
+//
+//// 2. Create a "Guardian" in Timisoara (Union Square)
+//// Radius 200m
+//      tech.titans.runwars.utils.TerritoryGenerator.createBot(
+//          centerLat = 45.7580,
+//          centerLng = 21.2290,
+//          radiusMeters = 200.0,
+//          botName = "Timisoara Guardian"
+//      )
+//
+//// 3. Create a small enemy near "Iulius Mall Cluj" for testing
+//      tech.titans.runwars.utils.TerritoryGenerator.createBot(
+//          centerLat = 46.7712,
+//          centerLng = 23.6323,
+//          radiusMeters = 150.0,
+//          botName = "Mall Rat"
+//      )
+
+//      tech.titans.runwars.utils.TerritoryGenerator.createBot(
+//          centerLat = 46.7585,
+//          centerLng = 23.5446,
+//          radiusMeters = 180.0,
+//          botName = "River Runner"
+//      )
+//
+//// 2. The "King of the Hill" (Cetatuie)
+//// High ground! Hard to physically run this, so it's a prestige target.
+//      tech.titans.runwars.utils.TerritoryGenerator.createBot(
+//          centerLat = 46.7725,
+//          centerLng = 23.5850,
+//          radiusMeters = 120.0,
+//          botName = "Cetatuie King"
+//      )
+//
+//      // 4. The "Zorilor Sprinter" (Observatorului)
+//// A standard residential runner.
+//      tech.titans.runwars.utils.TerritoryGenerator.createBot(
+//          centerLat = 46.7533,
+//          centerLng = 23.5936,
+//          radiusMeters = 200.0,
+//          botName = "Zorilor Sprinter"
+//      )
+//
+//// 5. The "Base Boss" (Baza Sportiva Gheorgheni)
+//// This is a huge territory covering the sports complex. A raid boss.
+//      tech.titans.runwars.utils.TerritoryGenerator.createBot(
+//          centerLat = 46.7688,
+//          centerLng = 23.6395,
+//          radiusMeters = 350.0, // Massive!
+//          botName = "Gheorgheni Boss"
+//      )
+//
+//// 6. The "Airport Security" (Outskirts)
+//// Someone has to guard the entrance to the city.
+//      tech.titans.runwars.utils.TerritoryGenerator.createBot(
+//          centerLat = 46.7806,
+//          centerLng = 23.6766,
+//          radiusMeters = 400.0,
+//          botName = "Airport Security"
+//      )
 
         setContent {
             RunWarsTheme {
